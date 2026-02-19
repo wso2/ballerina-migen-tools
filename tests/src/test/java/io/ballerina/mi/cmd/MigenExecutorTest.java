@@ -28,17 +28,45 @@ import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class MigenExecutorTest {
 
+    private List<Path> tempDirs = new ArrayList<>();
+
     @AfterMethod
     public void resetConnector() {
         Connector.reset();
+    }
+
+    @AfterMethod
+    public void cleanupTempDirs() {
+        for (Path tempDir : tempDirs) {
+            try {
+                if (Files.exists(tempDir)) {
+                    Files.walk(tempDir)
+                            .sorted(Comparator.reverseOrder())
+                            .forEach(path -> {
+                                try {
+                                    Files.delete(path);
+                                } catch (IOException e) {
+                                    // ignore
+                                }
+                            });
+                }
+            } catch (IOException e) {
+                // ignore
+            }
+        }
+        tempDirs.clear();
     }
 
     @Test
@@ -46,6 +74,7 @@ public class MigenExecutorTest {
         createConnector("wso2", "empty", "1.0.0");
 
         Path tempDir = Files.createTempDirectory("migen-no-components");
+        tempDirs.add(tempDir);
         boolean result = MigenExecutor.generateMIArtifacts(tempDir, tempDir, true, System.out);
         Assert.assertFalse(result);
     }
@@ -56,6 +85,7 @@ public class MigenExecutorTest {
         connector.setGenerationAborted(true, "analysis failed");
 
         Path tempDir = Files.createTempDirectory("migen-aborted");
+        tempDirs.add(tempDir);
         boolean result = MigenExecutor.generateMIArtifacts(tempDir, tempDir, true, System.out);
         Assert.assertFalse(result);
     }
