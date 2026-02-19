@@ -57,9 +57,11 @@ public class MigenSubcommandTest {
             PrintStream originalOut = System.out;
             System.setOut(new PrintStream(outContent));
 
-            moduleCmd.execute();
-
-            System.setOut(originalOut);
+            try {
+                moduleCmd.execute();
+            } finally {
+                System.setOut(originalOut);
+            }
 
             // Use any(PrintStream.class) — System.out identity may differ between call-time and verify-time
             mockedMigenExecutor.verify(() ->
@@ -87,9 +89,11 @@ public class MigenSubcommandTest {
             PrintStream originalOut = System.out;
             System.setOut(new PrintStream(outContent));
 
-            connectorCmd.execute();
-
-            System.setOut(originalOut);
+            try {
+                connectorCmd.execute();
+            } finally {
+                System.setOut(originalOut);
+            }
 
             // Use any(PrintStream.class) — System.out identity may differ between call-time and verify-time
             mockedMigenExecutor.verify(() ->
@@ -111,11 +115,15 @@ public class MigenSubcommandTest {
 
             ByteArrayOutputStream outContent = new ByteArrayOutputStream();
             PrintStream originalOut = System.out;
-            System.setOut(new PrintStream(outContent));
+            PrintStream capturedOut = new PrintStream(outContent);
+            System.setOut(capturedOut);
+            setField(connectorCmd, "printStream", capturedOut);
 
-            connectorCmd.execute();
-
-            System.setOut(originalOut);
+            try {
+                connectorCmd.execute();
+            } finally {
+                System.setOut(originalOut);
+            }
 
             // When --package is provided, ConnectorCmd prints a warning and returns early
             // without calling executeGeneration (feature not yet supported)
