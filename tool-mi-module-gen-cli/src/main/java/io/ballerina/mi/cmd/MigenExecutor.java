@@ -73,7 +73,7 @@ public class MigenExecutor {
              return;
         }
         if (!isConnector && !isBuildProject) {
-             printStream.println("ERROR: Expected a Ballerina source project for 'function' command, but found a Bala project.");
+             printStream.println("ERROR: Expected a Ballerina source project for 'module' command, but found a Bala project.");
              return;
         }
 
