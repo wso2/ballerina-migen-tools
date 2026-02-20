@@ -223,23 +223,20 @@ public final class ResourceCopier {
             return;
         }
 
+        List<Path> matchingPaths;
         try (Stream<Path> stream = Files.walk(resourcePath)) {
-            stream.filter(p -> p.toString().endsWith(fileExtension))
-                  .forEach(p -> {
-                      try {
-                          // Relativize against sourceRoot/resourceFolder or just sourceRoot?
-                          // sourceRoot is ".../classes/java/main".
-                          // resourcePath is ".../classes/java/main/icons".
-                          // p is ".../icons/icon.png".
-                          // relative is "icons/icon.png".
-                          Path relative = sourceRoot.relativize(p);
-                          // For ClassLoader resource loading, we need forward slashes
-                          String resourceName = relative.toString().replace('\\', '/');
-                          copyResource(classLoader, resourceName, destination);
-                      } catch (IOException e) {
-                          throw new RuntimeException(e);
-                      }
-                  });
+            matchingPaths = stream.filter(p -> p.toString().endsWith(fileExtension))
+                                  .toList();
+        }
+        for (Path p : matchingPaths) {
+            // Build the classpath-relative name by relativizing against sourceRoot
+            // (e.g. sourceRoot=".../resources/main", p=".../resources/main/icons/icon.png"
+            // → relative="icons/icon.png"), which matches the resource name expected
+            // by ClassLoader.getResourceAsStream.
+            Path relative = sourceRoot.relativize(p);
+            // Normalise to forward slashes for ClassLoader resource lookup on all platforms.
+            String resourceName = relative.toString().replace('\\', '/');
+            copyResource(classLoader, resourceName, destination);
         }
     }
 
