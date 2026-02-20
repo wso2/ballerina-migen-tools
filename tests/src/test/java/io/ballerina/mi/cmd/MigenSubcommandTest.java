@@ -137,4 +137,38 @@ public class MigenSubcommandTest {
             );
         }
     }
+
+    @Test
+    public void testConnectorCmdWithPackageIdNoVersion() throws Exception {
+        try (MockedStatic<MigenExecutor> mockedMigenExecutor = mockStatic(MigenExecutor.class);
+             MockedStatic<io.ballerina.mi.util.CentralPackagePuller> mockedPuller = mockStatic(io.ballerina.mi.util.CentralPackagePuller.class)) {
+            
+            ConnectorCmd connectorCmd = new ConnectorCmd();
+            String testPackageId = "wso2/some_connector";
+            String testTargetPath = "/tmp/generatedConnectorArtifacts";
+            
+            setField(connectorCmd, "packageId", testPackageId);
+            setField(connectorCmd, "targetPath", testTargetPath);
+
+            Path mockDummyPath = Path.of("/tmp/dummy-extracted-bala");
+            mockedPuller.when(() -> io.ballerina.mi.util.CentralPackagePuller.pullAndExtractPackage(
+                    eq("wso2"), eq("some_connector"), isNull(), any(Path.class)))
+                .thenReturn(mockDummyPath);
+
+            ByteArrayOutputStream outContent = new ByteArrayOutputStream();
+            PrintStream originalOut = System.out;
+            System.setOut(new PrintStream(outContent));
+
+            try {
+                connectorCmd.execute();
+            } finally {
+                System.setOut(originalOut);
+            }
+
+            mockedMigenExecutor.verify(() ->
+                MigenExecutor.executeGeneration(eq(mockDummyPath.toString()), eq(testTargetPath), any(PrintStream.class), eq(true)),
+                times(1)
+            );
+        }
+    }
 }

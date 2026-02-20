@@ -18,6 +18,7 @@
 
 package io.ballerina.mi.util;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -32,9 +33,14 @@ import java.util.zip.ZipInputStream;
 
 public class CentralPackagePuller {
 
+    private static final String CENTRAL_API_VERSION_URL = "https://api.central.ballerina.io/2.0/registry/packages/%s/%s";
     private static final String CENTRAL_API_URL = "https://api.central.ballerina.io/2.0/registry/packages/%s/%s/%s";
 
     public static Path pullAndExtractPackage(String org, String name, String version, Path targetDir) throws Exception {
+        if (version == null || version.isEmpty()) {
+            version = fetchLatestVersion(org, name);
+        }
+
         String apiUrl = String.format(CENTRAL_API_URL, org, name, version);
         
         // 1. Fetch package details
@@ -89,5 +95,23 @@ public class CentralPackagePuller {
         }
         
         return extractedBalaPath;
+    }
+
+    private static String fetchLatestVersion(String org, String name) throws Exception {
+        String apiUrl = String.format(CENTRAL_API_VERSION_URL, org, name);
+        HttpURLConnection connection = (HttpURLConnection) new URL(apiUrl).openConnection();
+        connection.setRequestMethod("GET");
+        connection.setRequestProperty("Accept", "application/json");
+
+        if (connection.getResponseCode() != 200) {
+            throw new RuntimeException("Failed to fetch package versions from Ballerina Central. HTTP code: " + connection.getResponseCode());
+        }
+
+        JsonArray versionsArray = JsonParser.parseReader(new InputStreamReader(connection.getInputStream())).getAsJsonArray();
+        if (versionsArray.isEmpty()) {
+            throw new RuntimeException("No versions found for package " + org + "/" + name);
+        }
+
+        return versionsArray.get(0).getAsString();
     }
 }

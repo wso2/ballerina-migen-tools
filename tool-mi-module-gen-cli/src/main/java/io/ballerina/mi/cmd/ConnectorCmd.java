@@ -67,18 +67,26 @@ public class ConnectorCmd implements BLauncherCmd {
 
         if (packageId != null) {
             String[] parts = packageId.split(":");
-            if (parts.length != 2) {
-                printStream.println("ERROR: Invalid package format. Expected org/name:version");
+            String basePackage;
+            String version = null;
+
+            if (parts.length == 1) {
+                basePackage = parts[0];
+            } else if (parts.length == 2) {
+                basePackage = parts[0];
+                version = parts[1];
+            } else {
+                printStream.println("ERROR: Invalid package format. Expected org/name or org/name:version");
                 return;
             }
-            String[] orgName = parts[0].split("/");
+
+            String[] orgName = basePackage.split("/");
             if (orgName.length != 2) {
-                printStream.println("ERROR: Invalid package format. Expected org/name:version");
+                printStream.println("ERROR: Invalid package format. Expected org/name or org/name:version");
                 return;
             }
             String org = orgName[0];
             String name = orgName[1];
-            String version = parts[1];
 
             // Resolve targetPath: default to CWD/target/mi/
             String target = targetPath != null
