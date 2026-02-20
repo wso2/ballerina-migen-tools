@@ -18,6 +18,7 @@
 
 package io.ballerina.mi.cmd;
 
+import org.testng.Assert;
 import org.testng.annotations.Test;
 import org.mockito.MockedStatic;
 
@@ -128,8 +129,8 @@ public class MigenSubcommandTest {
             // When --package is provided, ConnectorCmd prints a warning and returns early
             // without calling executeGeneration (feature not yet supported)
             String consoleOutput = outContent.toString();
-            assert consoleOutput.contains("--package is not yet fully supported") :
-                "Expected warning message not found. Actual: " + consoleOutput;
+            Assert.assertTrue(consoleOutput.contains("--package is not yet fully supported"),
+                "Expected warning message not found. Actual: " + consoleOutput);
 
             // executeGeneration should NOT be called — command returns early
             mockedMigenExecutor.verify(() ->
