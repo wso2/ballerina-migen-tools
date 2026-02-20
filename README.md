@@ -77,7 +77,7 @@ Above command generates the connector zip in the specified output directory.
    Then run the build command:
 
    ```bash
-   $ ./gradlew clean :tool-mi-module-gen:localPublish
+   $ ./gradlew clean :tool-migen:localPublish
    ```
 
 ### Run tests

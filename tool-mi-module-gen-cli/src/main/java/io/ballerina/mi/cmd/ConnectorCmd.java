@@ -53,7 +53,9 @@ public class ConnectorCmd implements BLauncherCmd {
     @Override
     public void execute() {
         if (helpFlag) {
-            CommandLine.usage(this, printStream);
+            String commandUsageInfo = BLauncherCmd.getCommandUsageInfo("migen-connector",
+                    ConnectorCmd.class.getClassLoader());
+            printStream.println(commandUsageInfo);
             return;
         }
 
@@ -122,9 +124,7 @@ public class ConnectorCmd implements BLauncherCmd {
 
     @Override
     public void printLongDesc(StringBuilder stringBuilder) {
-        stringBuilder.append("Generate WSO2 Micro Integrator artifacts from Ballerina connectors.\n");
-        stringBuilder.append("This command scans the Ballerina connector project or extracted BALA\n");
-        stringBuilder.append("and generates the corresponding MI connector artifacts.\n");
+        stringBuilder.append("Generate WSO2 Micro Integrator connector from Ballerina connector\n");
     }
 
     @Override

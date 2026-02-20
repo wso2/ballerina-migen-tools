@@ -111,7 +111,13 @@ public class MigenExecutor {
 
     static Boolean compileAnalyzeAndEmit(Path projectPath, Path miArtifactsPath, PrintStream printStream, Path[] executablePathRef, boolean isConnector) {
         BuildOptions buildOptions = BuildOptions.builder().setOffline(false).build();
-        ProjectLoadResult projectLoadResult = ProjectLoader.load(projectPath.toAbsolutePath(), buildOptions);
+        ProjectLoadResult projectLoadResult;
+        try {
+            projectLoadResult = ProjectLoader.load(projectPath.toAbsolutePath(), buildOptions);
+        } catch (io.ballerina.projects.ProjectException e) {
+            printStream.println("ERROR: Valid Ballerina package or bala file not found at " + projectPath.toAbsolutePath() + ". " + e.getMessage());
+            return null;
+        }
         Project project = projectLoadResult.project();
         Package compilePkg = project.currentPackage();
         boolean isBuildProject = project instanceof BuildProject;

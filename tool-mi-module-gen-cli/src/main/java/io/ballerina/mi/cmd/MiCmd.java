@@ -40,10 +40,8 @@ public class MiCmd implements BLauncherCmd {
 
     @Override
     public void execute() {
-        StringBuilder stringBuilder = new StringBuilder();
-        printLongDesc(stringBuilder);
-        printStream.println(stringBuilder);
-
+        String commandUsageInfo = BLauncherCmd.getCommandUsageInfo(CMD_NAME, MiCmd.class.getClassLoader());
+        printStream.println(commandUsageInfo);
     }
 
 
@@ -55,10 +53,7 @@ public class MiCmd implements BLauncherCmd {
 
     @Override
     public void printLongDesc(StringBuilder stringBuilder) {
-        stringBuilder.append("Generate WSO2 Micro Integrator artifacts from Ballerina.\n\n");
-        stringBuilder.append("Subcommands:\n");
-        stringBuilder.append("  module      Generate MI module from @mi:Operation annotated functions\n");
-        stringBuilder.append("  connector   Generate MI connector artifacts from Ballerina connectors\n");
+        stringBuilder.append("Generate WSO2 Micro Integrator artifacts from Ballerina\n");
     }
 
     @Override
