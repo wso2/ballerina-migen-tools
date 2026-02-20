@@ -80,30 +80,33 @@ public class MigenExecutor {
         // Deterministic lifecycle management
         ResourceLifecycleManager lifecycle = new ResourceLifecycleManager();
 
-        // Generate MI artifacts
-        boolean artifactsGenerated = generateMIArtifacts(executablePathRef[0], miArtifactsPath, isBuildProject, printStream);
-        if (!artifactsGenerated) {
-            return;
-        }
-
-        // Deterministic cleanup
-        lifecycle.cleanup();
-        printStream.println("Validating artifacts...");
-
-        boolean isValid = ConnectorValidator.validateConnector(miArtifactsPath);
-        if (!isValid) {
-            printStream.println("ERROR: MI " + (isBuildProject ? "module" : "connector") + 
-                    " generation failed due to validation errors.");
-            try {
-                Utils.deleteDirectory(miArtifactsPath);
-            } catch (IOException e) {
-                printStream.println("ERROR: Failed to delete invalid MI " + (isBuildProject ?
-                        "module" : "connector") + " artifacts at: " + miArtifactsPath);
+        try {
+            // Generate MI artifacts
+            boolean artifactsGenerated = generateMIArtifacts(executablePathRef[0], miArtifactsPath, isBuildProject, printStream);
+            if (!artifactsGenerated) {
+                return;
             }
-            return;
+
+            printStream.println("Validating artifacts...");
+
+            boolean isValid = ConnectorValidator.validateConnector(miArtifactsPath);
+            if (!isValid) {
+                printStream.println("ERROR: MI " + (isBuildProject ? "module" : "connector") + 
+                        " generation failed due to validation errors.");
+                try {
+                    Utils.deleteDirectory(miArtifactsPath);
+                } catch (IOException e) {
+                    printStream.println("ERROR: Failed to delete invalid MI " + (isBuildProject ?
+                            "module" : "connector") + " artifacts at: " + miArtifactsPath);
+                }
+                return;
+            }
+            printStream.println("MI " + (isBuildProject ? "module" : "connector") + 
+                    " generation completed successfully.");
+        } finally {
+            // Deterministic cleanup
+            lifecycle.cleanup();
         }
-        printStream.println("MI " + (isBuildProject ? "module" : "connector") + 
-                " generation completed successfully.");
     }
 
     static Boolean compileAnalyzeAndEmit(Path projectPath, Path miArtifactsPath, PrintStream printStream, Path[] executablePathRef, boolean isConnector) {
