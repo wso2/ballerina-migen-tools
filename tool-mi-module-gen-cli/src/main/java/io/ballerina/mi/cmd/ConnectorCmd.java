@@ -66,10 +66,32 @@ public class ConnectorCmd implements BLauncherCmd {
         Path resolvedSource;
 
         if (packageId != null) {
-            // --package mode: not yet fully supported, placeholder
-            printStream.println("Warning: --package is not yet fully supported. " +
-                    "Please use 'bal pull <org/package>' and provide the extracted bala path with --path.");
-            return;
+            String[] parts = packageId.split(":");
+            if (parts.length != 2) {
+                printStream.println("ERROR: Invalid package format. Expected org/name:version");
+                return;
+            }
+            String[] orgName = parts[0].split("/");
+            if (orgName.length != 2) {
+                printStream.println("ERROR: Invalid package format. Expected org/name:version");
+                return;
+            }
+            String org = orgName[0];
+            String name = orgName[1];
+            String version = parts[1];
+
+            // Resolve targetPath: default to CWD/target/mi/
+            String target = targetPath != null
+                    ? targetPath
+                    : Paths.get(System.getProperty("user.dir")).resolve("target").resolve("mi").toString();
+
+            try {
+                resolvedSource = io.ballerina.mi.util.CentralPackagePuller.pullAndExtractPackage(
+                        org, name, version, Paths.get(target));
+            } catch (Exception e) {
+                printStream.println("ERROR: Failed to download package " + packageId + " - " + e.getMessage());
+                return;
+            }
         } else {
             // --path mode (or CWD default)
             resolvedSource = sourcePath != null

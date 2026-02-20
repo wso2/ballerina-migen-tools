@@ -105,20 +105,25 @@ public class MigenSubcommandTest {
     }
 
     @Test
-    public void testConnectorCmdWithPackageIdWarning() throws Exception {
-        try (MockedStatic<MigenExecutor> mockedMigenExecutor = mockStatic(MigenExecutor.class)) {
+    public void testConnectorCmdWithPackageId() throws Exception {
+        try (MockedStatic<MigenExecutor> mockedMigenExecutor = mockStatic(MigenExecutor.class);
+             MockedStatic<io.ballerina.mi.util.CentralPackagePuller> mockedPuller = mockStatic(io.ballerina.mi.util.CentralPackagePuller.class)) {
+            
             ConnectorCmd connectorCmd = new ConnectorCmd();
             String testPackageId = "wso2/some_connector:1.0.0";
-
-            // Only set packageId — setting both packageId AND sourcePath triggers
-            // the mutual-exclusion error, not the --package-not-supported warning
+            String testTargetPath = "/tmp/generatedConnectorArtifacts";
+            
             setField(connectorCmd, "packageId", testPackageId);
+            setField(connectorCmd, "targetPath", testTargetPath);
+
+            Path mockDummyPath = Path.of("/tmp/dummy-extracted-bala");
+            mockedPuller.when(() -> io.ballerina.mi.util.CentralPackagePuller.pullAndExtractPackage(
+                    eq("wso2"), eq("some_connector"), eq("1.0.0"), any(Path.class)))
+                .thenReturn(mockDummyPath);
 
             ByteArrayOutputStream outContent = new ByteArrayOutputStream();
             PrintStream originalOut = System.out;
-            PrintStream capturedOut = new PrintStream(outContent);
-            System.setOut(capturedOut);
-            setField(connectorCmd, "printStream", capturedOut);
+            System.setOut(new PrintStream(outContent));
 
             try {
                 connectorCmd.execute();
@@ -126,16 +131,9 @@ public class MigenSubcommandTest {
                 System.setOut(originalOut);
             }
 
-            // When --package is provided, ConnectorCmd prints a warning and returns early
-            // without calling executeGeneration (feature not yet supported)
-            String consoleOutput = outContent.toString();
-            Assert.assertTrue(consoleOutput.contains("--package is not yet fully supported"),
-                "Expected warning message not found. Actual: " + consoleOutput);
-
-            // executeGeneration should NOT be called — command returns early
             mockedMigenExecutor.verify(() ->
-                MigenExecutor.executeGeneration(any(), any(), any(PrintStream.class), eq(true)),
-                never()
+                MigenExecutor.executeGeneration(eq(mockDummyPath.toString()), eq(testTargetPath), any(PrintStream.class), eq(true)),
+                times(1)
             );
         }
     }
