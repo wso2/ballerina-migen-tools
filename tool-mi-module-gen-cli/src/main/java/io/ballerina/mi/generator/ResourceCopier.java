@@ -198,7 +198,7 @@ public final class ResourceCopier {
         Enumeration<JarEntry> entries = jar.entries();
         while (entries.hasMoreElements()) {
             JarEntry entry = entries.nextElement();
-            if (entry.getName().contains(resourceFolder) && entry.getName().endsWith(fileExtension)) {
+            if (entry.getName().startsWith(resourceFolder + "/") && entry.getName().endsWith(fileExtension)) {
                 // When copying from JAR resources, we use the entry name as the resource path.
                 // However, classLoader.getResourceAsStream expects path starting from classpath root.
                 // JarEntry names usually don't have leading slash, which is good.
@@ -223,38 +223,32 @@ public final class ResourceCopier {
             return;
         }
 
+        List<Path> matchingPaths;
         try (Stream<Path> stream = Files.walk(resourcePath)) {
-            stream.filter(p -> p.toString().endsWith(fileExtension))
-                  .forEach(p -> {
-                      try {
-                          // Relativize against sourceRoot/resourceFolder or just sourceRoot?
-                          // sourceRoot is ".../classes/java/main".
-                          // resourcePath is ".../classes/java/main/icons".
-                          // p is ".../icons/icon.png".
-                          // relative is "icons/icon.png".
-                          Path relative = sourceRoot.relativize(p);
-                          // For ClassLoader resource loading, we need forward slashes
-                          String resourceName = relative.toString().replace('\\', '/');
-                          copyResource(classLoader, resourceName, destination);
-                      } catch (IOException e) {
-                          throw new RuntimeException(e);
-                      }
-                  });
+            matchingPaths = stream.filter(p -> p.toString().endsWith(fileExtension))
+                                  .toList();
+        }
+        for (Path p : matchingPaths) {
+            // Build the classpath-relative name by relativizing against sourceRoot
+            // (e.g. sourceRoot=".../resources/main", p=".../resources/main/icons/icon.png"
+            // → relative="icons/icon.png"), which matches the resource name expected
+            // by ClassLoader.getResourceAsStream.
+            Path relative = sourceRoot.relativize(p);
+            // Normalise to forward slashes for ClassLoader resource lookup on all platforms.
+            String resourceName = relative.toString().replace('\\', '/');
+            copyResource(classLoader, resourceName, destination);
         }
     }
 
     private static void copyResource(ClassLoader classLoader, String resourcePath, Path destination) throws IOException {
         Path outputPath = destination.resolve(resourcePath);
         Files.createDirectories(outputPath.getParent());
-        try {
-            InputStream inputStream = getFileFromResourceAsStream(classLoader, resourcePath);
+        try (InputStream inputStream = getFileFromResourceAsStream(classLoader, resourcePath)) {
             Files.copy(inputStream, outputPath, StandardCopyOption.REPLACE_EXISTING);
         } catch (IllegalArgumentException e) {
-            // Resource not found in classpath (maybe only in fs/jar?)
-            // If we found it via Files.walk/JarEntry, it SHOULD be loadable via classloader?
-            // Unless it is a file in the JAR/Dir but not in the classpath?
-            // ResourceCopier logic assumes: if it's in the jar, it's a resource.
-            // So we re-throw.
+            // Propagate resource resolution failures: at this stage, all discovered resources
+            // are expected to be loadable via the provided ClassLoader, so a missing resource
+            // indicates a configuration or packaging error that should fail fast.
             throw e;
         }
     }
