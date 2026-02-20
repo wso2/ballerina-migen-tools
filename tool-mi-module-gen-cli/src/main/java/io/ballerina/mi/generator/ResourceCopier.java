@@ -249,11 +249,9 @@ public final class ResourceCopier {
         try (InputStream inputStream = getFileFromResourceAsStream(classLoader, resourcePath)) {
             Files.copy(inputStream, outputPath, StandardCopyOption.REPLACE_EXISTING);
         } catch (IllegalArgumentException e) {
-            // Resource not found in classpath (maybe only in fs/jar?)
-            // If we found it via Files.walk/JarEntry, it SHOULD be loadable via classloader?
-            // Unless it is a file in the JAR/Dir but not in the classpath?
-            // ResourceCopier logic assumes: if it's in the jar, it's a resource.
-            // So we re-throw.
+            // Propagate resource resolution failures: at this stage, all discovered resources
+            // are expected to be loadable via the provided ClassLoader, so a missing resource
+            // indicates a configuration or packaging error that should fail fast.
             throw e;
         }
     }
