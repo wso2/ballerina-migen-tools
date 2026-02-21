@@ -33,7 +33,7 @@ public class ConnectorCmd implements BLauncherCmd {
     @CommandLine.Option(names = {"--help", "-h"}, usageHelp = true, hidden = true)
     private boolean helpFlag;
 
-    @CommandLine.Option(names = {"--path", "-p"},
+    @CommandLine.Option(names = {"--path"},
             description = "Path to the local Ballerina connector project or bala (defaults to CWD). " +
                     "Mutually exclusive with --package.")
     private String sourcePath;
@@ -59,10 +59,10 @@ public class ConnectorCmd implements BLauncherCmd {
             return;
         }
 
-        // Enforce mutual exclusivity of --package and --path
+        // If both --package and --path are provided, give priority to --path
         if (packageId != null && sourcePath != null) {
-            printStream.println("ERROR: --package and --path are mutually exclusive. Please provide only one.");
-            return;
+            printStream.println("WARNING: Both --package and --path provided. Giving priority to --path.");
+            packageId = null;
         }
 
         Path resolvedSource;
