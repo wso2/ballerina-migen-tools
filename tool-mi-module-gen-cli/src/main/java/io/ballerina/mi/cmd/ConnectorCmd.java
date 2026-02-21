@@ -57,10 +57,10 @@ public class ConnectorCmd implements BLauncherCmd {
             return;
         }
 
-        // Enforce mutual exclusivity of --package and --path
+        // If both --package and --path are provided, give priority to --path
         if (packageId != null && sourcePath != null) {
-            printStream.println("ERROR: --package and --path are mutually exclusive. Please provide only one.");
-            return;
+            printStream.println("WARNING: Both --package and --path provided. Giving priority to --path.");
+            packageId = null;
         }
 
         Path resolvedSource;
