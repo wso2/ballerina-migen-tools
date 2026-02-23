@@ -23,7 +23,7 @@ This tool enables developers to:
 Pull the tool using the Ballerina CLI:
 
 ```bash
-$ bal tool pull tool.migen
+$ bal tool pull migen
 ```
 
 ### Usage
