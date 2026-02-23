@@ -68,9 +68,18 @@ public final class ResourceCopier {
             // while CodeSource points to build/classes/java/main.
             Path resourcesPath = sourcePath;
             if (sourcePath.endsWith(Paths.get("classes", "java", "main"))) {
-                Path potentialResources = sourcePath.getParent().getParent().getParent().resolve("resources").resolve("main");
-                if (Files.exists(potentialResources)) {
-                    resourcesPath = potentialResources;
+                Path ancestor = sourcePath;
+                for (int i = 0; i < 3; i++) {
+                    if (ancestor == null) {
+                        break;
+                    }
+                    ancestor = ancestor.getParent();
+                }
+                if (ancestor != null) {
+                    Path potentialResources = ancestor.resolve("resources").resolve("main");
+                    if (Files.exists(potentialResources)) {
+                        resourcesPath = potentialResources;
+                    }
                 }
             }
             
