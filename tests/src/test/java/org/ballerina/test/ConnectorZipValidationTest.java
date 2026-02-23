@@ -20,7 +20,6 @@ import io.ballerina.mi.cmd.ConnectorCmd;
 import io.ballerina.mi.cmd.ModuleCmd;
 import io.ballerina.mi.model.Connector;
 import io.ballerina.mi.test.util.ArtifactGenerationUtil;
-import org.jetbrains.annotations.NotNull;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
