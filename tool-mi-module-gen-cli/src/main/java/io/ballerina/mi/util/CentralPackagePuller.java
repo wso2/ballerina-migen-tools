@@ -25,6 +25,7 @@ import com.google.gson.JsonParser;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -56,7 +57,7 @@ public class CentralPackagePuller {
             }
 
             JsonObject responseJson;
-            try (InputStreamReader reader = new InputStreamReader(connection.getInputStream())) {
+            try (InputStreamReader reader = new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8)) {
                 responseJson = JsonParser.parseReader(reader).getAsJsonObject();
             }
 
@@ -124,7 +125,7 @@ public class CentralPackagePuller {
             }
 
             JsonArray versionsArray;
-            try (InputStreamReader reader = new InputStreamReader(connection.getInputStream())) {
+            try (InputStreamReader reader = new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8)) {
                 versionsArray = JsonParser.parseReader(reader).getAsJsonArray();
             }
             if (versionsArray.isEmpty()) {
