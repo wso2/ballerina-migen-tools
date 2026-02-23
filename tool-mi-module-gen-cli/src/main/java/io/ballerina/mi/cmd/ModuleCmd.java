@@ -34,7 +34,7 @@ public class ModuleCmd implements BLauncherCmd {
     @CommandLine.Option(names = {"--help", "-h"}, usageHelp = true, hidden = true)
     private boolean helpFlag;
 
-    @CommandLine.Option(names = {"--path", "-p"}, description = "Path to the Ballerina project (defaults to CWD)")
+    @CommandLine.Option(names = {"--path"}, description = "Path to the Ballerina project (defaults to CWD)")
     private String sourcePath;
 
     @CommandLine.Option(names = {"--output", "-o"}, description = "Output directory (defaults to <path>/target/mi/)")

@@ -10,7 +10,7 @@ DESCRIPTION
        and generates the corresponding MI artifacts.
 
 OPTIONS
-       -p, --path <path>
+       --path <path>
            Path to the Ballerina project. Defaults to the current directory if omitted.
 
        -o, --output <path>

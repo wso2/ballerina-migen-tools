@@ -8,7 +8,7 @@ OPTIONS
        --package <org/name:version>
            Ballerina Central package to generate from. Version is optional.
 
-       -p, --path <path>
+       --path <path>
            Path to local Ballerina connector project or bala.
            Defaults to the current directory if omitted.
 

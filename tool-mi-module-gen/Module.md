@@ -84,7 +84,7 @@ SUBCOMMANDS
   connector   Generate MI connector from a Ballerina connector
 
 COMMON OPTIONS
-  -p, --path <path>      Path to local project/bala (defaults to CWD)
+  --path <path>          Path to local project/bala (defaults to CWD)
   -o, --output <path>    Output directory (defaults to <path>/target/mi/ or ./target/mi/)
   -h, --help             Show help
 
