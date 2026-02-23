@@ -189,6 +189,11 @@ public class MigenExecutor {
             emitResult.diagnostics().diagnostics().forEach(d -> printStream.println("\n" + d.toString()));
         }
 
+        if (!emitResult.successful()) {
+            printStream.println("ERROR: Ballerina project emit failed; artifact generation aborted.");
+            return null;
+        }
+
         Connector.getConnector().clearTypeSymbols();
 
         return isBuildProject;
