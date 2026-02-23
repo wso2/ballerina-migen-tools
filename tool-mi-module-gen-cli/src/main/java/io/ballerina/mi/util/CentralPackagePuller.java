@@ -37,6 +37,13 @@ public class CentralPackagePuller {
     private static final String CENTRAL_API_VERSION_URL = "https://api.central.ballerina.io/2.0/registry/packages/%s/%s";
     private static final String CENTRAL_API_URL = "https://api.central.ballerina.io/2.0/registry/packages/%s/%s/%s";
 
+    /** TCP connect timeout for all Central API calls (10 s). */
+    private static final int CONNECT_TIMEOUT_MS = 10_000;
+    /** Read timeout for lightweight JSON API calls (30 s). */
+    private static final int READ_TIMEOUT_MS = 30_000;
+    /** Read timeout for the bala download connection (60 s — payload can be large). */
+    private static final int READ_TIMEOUT_DOWNLOAD_MS = 60_000;
+
     public static Path pullAndExtractPackage(String org, String name, String version, Path targetDir) throws Exception {
         if (version == null || version.isEmpty()) {
             version = fetchLatestVersion(org, name);
@@ -50,6 +57,8 @@ public class CentralPackagePuller {
         try {
             connection.setRequestMethod("GET");
             connection.setRequestProperty("Accept", "application/json");
+            connection.setConnectTimeout(CONNECT_TIMEOUT_MS);
+            connection.setReadTimeout(READ_TIMEOUT_MS);
 
             if (connection.getResponseCode() != 200) {
                 throw new RuntimeException("Failed to fetch package details from Ballerina Central. HTTP code: "
@@ -80,6 +89,8 @@ public class CentralPackagePuller {
         HttpURLConnection downloadConnection = (HttpURLConnection) new URL(balaUrl).openConnection();
         try {
             downloadConnection.setRequestMethod("GET");
+            downloadConnection.setConnectTimeout(CONNECT_TIMEOUT_MS);
+            downloadConnection.setReadTimeout(READ_TIMEOUT_DOWNLOAD_MS);
 
             if (downloadConnection.getResponseCode() != 200) {
                 throw new RuntimeException("Failed to download bala file. HTTP code: "
@@ -118,6 +129,8 @@ public class CentralPackagePuller {
         try {
             connection.setRequestMethod("GET");
             connection.setRequestProperty("Accept", "application/json");
+            connection.setConnectTimeout(CONNECT_TIMEOUT_MS);
+            connection.setReadTimeout(READ_TIMEOUT_MS);
 
             if (connection.getResponseCode() != 200) {
                 throw new RuntimeException("Failed to fetch package versions from Ballerina Central. HTTP code: "
