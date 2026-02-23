@@ -59,10 +59,10 @@ public class ConnectorCmd implements BLauncherCmd {
             return;
         }
 
-        // If both --package and --path are provided, give priority to --path
+        // If both --package and --path are provided, fail fast as they are mutually exclusive.
         if (packageId != null && sourcePath != null) {
-            printStream.println("WARNING: Both --package and --path provided. Giving priority to --path.");
-            packageId = null;
+            printStream.println("ERROR: Options --package and --path are mutually exclusive. Please provide only one.");
+            System.exit(1);
         }
 
         Path resolvedSource;
