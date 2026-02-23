@@ -62,7 +62,13 @@ public class MigenExecutor {
         Path[] executablePathRef = new Path[1];
 
         // Compile, analyze, and emit
-        Boolean isBuildProject = compileAnalyzeAndEmit(projectPath, miArtifactsPath, printStream, executablePathRef, isConnector);
+        Boolean isBuildProject;
+        try {
+            isBuildProject = compileAnalyzeAndEmit(projectPath, miArtifactsPath, printStream, executablePathRef, isConnector);
+        } catch (IOException e) {
+            printStream.println("ERROR: Failed to create output directories: " + e.getMessage());
+            return;
+        }
         
         if (isBuildProject == null) {
             return; // Compilation/Analysis failed
@@ -118,7 +124,7 @@ public class MigenExecutor {
         }
     }
 
-    static Boolean compileAnalyzeAndEmit(Path projectPath, Path miArtifactsPath, PrintStream printStream, Path[] executablePathRef, boolean isConnector) {
+    static Boolean compileAnalyzeAndEmit(Path projectPath, Path miArtifactsPath, PrintStream printStream, Path[] executablePathRef, boolean isConnector) throws IOException {
         BuildOptions buildOptions = BuildOptions.builder().setOffline(false).build();
         ProjectLoadResult projectLoadResult;
         try {
@@ -144,11 +150,7 @@ public class MigenExecutor {
                     CONNECTOR_NAME_SEPARATOR + compilePkg.descriptor().name().value() +
                     CONNECTOR_NAME_SEPARATOR + compilePkg.descriptor().version().toString() + ".jar" );
 
-            try {
-                Files.createDirectories(miConnectorCache);
-            } catch (IOException e) {
-                throw  new RuntimeException(e);
-            }
+            Files.createDirectories(miConnectorCache);
             System.setProperty(Constants.CONNECTOR_TARGET_PATH, executablePathRef[0].toString());
         } else {
             balAnalyzer = new BalModuleAnalyzer();
@@ -171,11 +173,7 @@ public class MigenExecutor {
 
         if (isBuildProject) {
             Path bin = miArtifactsPath.resolve("bin");
-            try {
-                createBinFolder(bin);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
+            createBinFolder(bin);
             executablePathRef[0] = bin.resolve(compilePkg.descriptor().name().value() + ".jar");
         }
 
