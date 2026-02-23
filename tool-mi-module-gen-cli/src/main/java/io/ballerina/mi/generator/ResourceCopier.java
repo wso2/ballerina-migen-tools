@@ -254,7 +254,13 @@ public final class ResourceCopier {
     }
 
     private static void copyResource(ClassLoader classLoader, String resourcePath, Path destination) throws IOException {
-        Path outputPath = destination.resolve(resourcePath);
+        // Zip-slip / path-traversal guard: normalize both paths and verify containment
+        // before creating any directories or writing any bytes.
+        Path normalizedDestination = destination.toAbsolutePath().normalize();
+        Path outputPath = normalizedDestination.resolve(resourcePath).normalize();
+        if (!outputPath.startsWith(normalizedDestination)) {
+            throw new IOException("Path traversal detected in resource entry: " + resourcePath);
+        }
         Files.createDirectories(outputPath.getParent());
         try (InputStream inputStream = getFileFromResourceAsStream(classLoader, resourcePath)) {
             Files.copy(inputStream, outputPath, StandardCopyOption.REPLACE_EXISTING);
