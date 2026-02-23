@@ -29,6 +29,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -44,10 +45,37 @@ public class CentralPackagePuller {
     /** Read timeout for the bala download connection (60 s — payload can be large). */
     private static final int READ_TIMEOUT_DOWNLOAD_MS = 60_000;
 
+    /**
+     * Pattern for valid semantic version strings.
+     * Allows: major.minor.patch with optional pre-release and build metadata.
+     * Examples: 1.0.0, 1.2.3-alpha, 1.0.0-beta.1+build.123
+     */
+    private static final Pattern SEMVER_PATTERN = Pattern.compile(
+            "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)" +
+            "(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?" +
+            "(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
+    );
+
+    /**
+     * Pattern for valid package org and name identifiers.
+     * Allows alphanumeric characters, underscores, hyphens, and dots (for submodules).
+     * Must start with a letter or underscore.
+     */
+    private static final Pattern PACKAGE_IDENTIFIER_PATTERN = Pattern.compile(
+            "^[a-zA-Z_][a-zA-Z0-9_.-]*$"
+    );
+
     public static Path pullAndExtractPackage(String org, String name, String version, Path targetDir) throws Exception {
+        // Validate org and name to prevent path traversal
+        validatePackageIdentifier(org, "org");
+        validatePackageIdentifier(name, "name");
+
         if (version == null || version.isEmpty()) {
             version = fetchLatestVersion(org, name);
         }
+
+        // Validate version to prevent path traversal
+        validateVersion(version);
 
         String apiUrl = String.format(CENTRAL_API_URL, org, name, version);
 
@@ -80,7 +108,17 @@ public class CentralPackagePuller {
         }
 
         // 2. Download and Extract bala
-        Path extractedBalaPath = targetDir.resolve("extracted-bala").resolve(org + "-" + name + "-" + version);
+        // Construct path safely with normalization and containment check
+        Path extractedBalaBase = targetDir.resolve("extracted-bala").normalize();
+        Path extractedBalaPath = extractedBalaBase.resolve(org + "-" + name + "-" + version).normalize();
+
+        // Verify the resolved path stays within the expected base directory (defense in depth)
+        if (!extractedBalaPath.startsWith(extractedBalaBase)) {
+            throw new SecurityException(
+                    "Path traversal detected: resolved path escapes the target directory. " +
+                    "org=" + org + ", name=" + name + ", version=" + version);
+        }
+
         if (Files.exists(extractedBalaPath)) {
             Utils.deleteDirectory(extractedBalaPath);
         }
@@ -148,6 +186,59 @@ public class CentralPackagePuller {
             return versionsArray.get(0).getAsString();
         } finally {
             connection.disconnect();
+        }
+    }
+
+    /**
+     * Validates that a version string is a valid semantic version.
+     * Rejects versions containing path traversal characters or invalid formats.
+     *
+     * @param version the version string to validate
+     * @throws IllegalArgumentException if the version is invalid
+     */
+    static void validateVersion(String version) {
+        if (version == null || version.isEmpty()) {
+            throw new IllegalArgumentException("Version cannot be null or empty");
+        }
+
+        // Check for path traversal characters
+        if (version.contains("..") || version.contains("/") || version.contains("\\")) {
+            throw new IllegalArgumentException(
+                    "Invalid version: contains path traversal characters. version=" + version);
+        }
+
+        // Validate against semantic version pattern
+        if (!SEMVER_PATTERN.matcher(version).matches()) {
+            throw new IllegalArgumentException(
+                    "Invalid version format: must be a valid semantic version (e.g., 1.0.0). version=" + version);
+        }
+    }
+
+    /**
+     * Validates that a package identifier (org or name) is safe and well-formed.
+     * Rejects identifiers containing path traversal characters or invalid formats.
+     *
+     * @param identifier the identifier string to validate
+     * @param fieldName the name of the field (for error messages)
+     * @throws IllegalArgumentException if the identifier is invalid
+     */
+    static void validatePackageIdentifier(String identifier, String fieldName) {
+        if (identifier == null || identifier.isEmpty()) {
+            throw new IllegalArgumentException(fieldName + " cannot be null or empty");
+        }
+
+        // Check for path traversal characters
+        if (identifier.contains("..") || identifier.contains("/") || identifier.contains("\\")) {
+            throw new IllegalArgumentException(
+                    "Invalid " + fieldName + ": contains path traversal characters. " + fieldName + "=" + identifier);
+        }
+
+        // Validate against package identifier pattern
+        if (!PACKAGE_IDENTIFIER_PATTERN.matcher(identifier).matches()) {
+            throw new IllegalArgumentException(
+                    "Invalid " + fieldName + " format: must contain only alphanumeric characters, " +
+                    "underscores, hyphens, and dots, starting with a letter or underscore. " +
+                    fieldName + "=" + identifier);
         }
     }
 }
