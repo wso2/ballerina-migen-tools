@@ -389,7 +389,6 @@ public class ConnectorZipValidationTest {
         }
     }
 
-    @NotNull
     private static ConnectorCmd getConnectorCmd(Path tempBalaDir, Path tempTargetDir) throws NoSuchFieldException, IllegalAccessException {
         ConnectorCmd connectorCmd = new ConnectorCmd();
         Field sourcePathField = ConnectorCmd.class.getDeclaredField("sourcePath");
