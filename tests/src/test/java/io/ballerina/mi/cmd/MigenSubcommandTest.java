@@ -27,6 +27,7 @@ import java.io.PrintStream;
 import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -82,6 +83,8 @@ public class MigenSubcommandTest {
             ConnectorCmd connectorCmd = new ConnectorCmd();
             String testSourcePath = "/tmp/testConnectorBala";
             String testTargetPath = "/tmp/generatedConnectorArtifacts";
+            // ConnectorCmd.execute() converts sourcePath to absolute path, so we need to match against that
+            String expectedSourcePath = Paths.get(testSourcePath).toAbsolutePath().toString();
 
             setField(connectorCmd, "sourcePath", testSourcePath);
             setField(connectorCmd, "targetPath", testTargetPath);
@@ -97,8 +100,9 @@ public class MigenSubcommandTest {
             }
 
             // Use any(PrintStream.class) — System.out identity may differ between call-time and verify-time
+            // Use expectedSourcePath which accounts for toAbsolutePath() transformation
             mockedMigenExecutor.verify(() ->
-                MigenExecutor.executeGeneration(eq(testSourcePath), eq(testTargetPath), any(PrintStream.class), eq(true)),
+                MigenExecutor.executeGeneration(eq(expectedSourcePath), eq(testTargetPath), any(PrintStream.class), eq(true)),
                 times(1)
             );
         }
