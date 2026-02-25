@@ -74,7 +74,7 @@ public function transformOrder(json orderData) returns json {
 
 ### 3.5 Generated Artifacts
 
-```
+```text
 <module-name>-module-<version>.zip
 ├── connector.xml              # Root module definition
 ├── functions/
@@ -155,7 +155,7 @@ public isolated client class Client {
 
 ### 4.5 Generated Artifacts
 
-```
+```text
 <org>-<connector>-connector-<version>.zip
 ├── connector.xml              # Root connector definition
 ├── functions/
