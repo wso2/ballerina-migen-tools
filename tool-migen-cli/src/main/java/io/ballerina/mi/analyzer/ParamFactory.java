@@ -205,7 +205,7 @@ public class ParamFactory {
             String optionType;
             if (memberKind == TypeDescKind.RECORD) {
                 TypeSymbol actualMember = Utils.getActualTypeSymbol(member);
-                optionLabel = actualMember.getName().orElse("Record" + memberIndex);
+                optionLabel = member.getName().orElse(actualMember.getName().orElse("Record" + memberIndex));
                 optionType = Constants.STRING;
             } else {
                 optionType = Utils.getParamTypeName(memberKind);

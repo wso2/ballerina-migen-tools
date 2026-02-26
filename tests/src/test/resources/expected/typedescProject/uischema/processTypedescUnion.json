@@ -32,14 +32,14 @@
                 {
                   "type": "attribute",
                   "value": {
-                    "name": "expectedType",
+                    "name": "expectedTypeDataType",
                     "displayName": "expectedType",
                     "inputType": "combo",
                     "comboValues": [
-                      "Record0",
-                      "Record1"
+                      "Message",
+                      "MessageBatch"
                     ],
-                    "defaultValue": "Record0",
+                    "defaultValue": "Message",
                     "required": "true",
                     "helpTip": ""
                   }

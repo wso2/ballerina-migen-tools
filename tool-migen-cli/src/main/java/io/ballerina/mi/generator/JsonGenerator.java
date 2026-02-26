@@ -369,8 +369,7 @@ public class JsonGenerator {
         }
         String enableCondition = unionFunctionParam.getEnableCondition();
         String sanitizedParamName = Utils.sanitizeParamName(paramName);
-        String comboName = unionFunctionParam.isTypeDescriptor() ? 
-                sanitizedParamName : String.format("%s%s", sanitizedParamName, "DataType");
+        String comboName = String.format("%s%s", sanitizedParamName, "DataType");
         
         String comboDisplayName = Utils.sanitizeParamName(paramName);
         if (groupName != null && !groupName.isEmpty() && paramName != null) {

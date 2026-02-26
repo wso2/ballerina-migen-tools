@@ -20,13 +20,13 @@
     <parameter name="responseVariable" description="The target variable in which the output of the operation will be stored"/>
     <parameter name="overwriteBody" description="Replace the Message Body in Message Context with the output payload of the operation"/>
     <parameter name="expectedTypeDataType" description="Select the data type for 'expectedType' parameter"/>
-    <parameter name="expectedTypeRecord0" description=""/>
-    <parameter name="expectedTypeRecord1" description=""/>
+    <parameter name="expectedTypeMessage" description=""/>
+    <parameter name="expectedTypeMessageBatch" description=""/>
     <sequence>
         <property name="param0" value="expectedType"/>
         <property name="paramType0" value="union"/>
-        <property name="param0UnionRecord0" value="expectedTypeRecord0"/>
-        <property name="param0UnionRecord1" value="expectedTypeRecord1"/>
+        <property name="param0UnionMessage" value="expectedTypeDataType"/>
+        <property name="param0UnionMessageBatch" value="expectedTypeDataType"/>
         <property name="paramSize" value="1"/>
         <property name="paramFunctionName" value="processTypedescUnion"/>
         <property name="returnType" value="union"/>

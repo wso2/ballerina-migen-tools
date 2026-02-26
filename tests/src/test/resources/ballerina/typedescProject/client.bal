@@ -13,12 +13,19 @@ public isolated client class TypedescClient {
 
     // Test B: Process typedesc<Message>
     remote isolated function processTypedescRecord(typedesc<Message> expectedType) returns Message {
-        return { body: "test" };
+        return {body: "test"};
     }
 
     // Test C: Process typedesc<Message|MessageBatch>
     remote isolated function processTypedescUnion(typedesc<Message|MessageBatch> expectedType) returns Message|MessageBatch {
-        return { body: "test" };
+        if expectedType is typedesc<MessageBatch> {
+            return {
+                messageCount: 1,
+                messages: [{body: "This is a batch message"}]
+            };
+        } else {
+            return {body: "This is a single message"};
+        }
     }
 
     // Test D: Process typedesc<anydata> (should be skipped)

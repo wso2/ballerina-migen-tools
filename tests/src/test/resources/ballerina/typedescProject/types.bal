@@ -7,6 +7,6 @@ public type Message record {|
 |};
 
 public type MessageBatch record {|
-    int messageCount = -1;
+    int messageCount = 3;
     Message[] messages = [];
 |};

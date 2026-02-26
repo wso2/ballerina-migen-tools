@@ -387,7 +387,7 @@ public final class XmlPropertyWriter {
                 }
             } else {
                 // Expand Union: Add DataType param and expand members
-                String dataTypeParamName = sanitizedParamName + "_DataType";
+                String dataTypeParamName = sanitizedParamName + "DataType";
 
                 if (!processedParams.contains(dataTypeParamName)) {
                     String description = functionParam.getDescription() != null ? functionParam.getDescription() : "";
