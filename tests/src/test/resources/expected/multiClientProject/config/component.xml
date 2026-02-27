@@ -16,12 +16,12 @@
   ~ specific language governing permissions and limitations
   ~ under the License.
   -->
-<connector>
-    <component name="{{sanitizeModuleName moduleName}}" package="io.ballerina.stdlib.mi">
-        {{writeConfigDependency this}}
-        {{{writeFunctionDependencies this}}}
-        <description>{{description}}</description>
-    </component>
-    <icon>icon/icon-small.png</icon>
-    <displayName>{{sanitizeModuleName moduleName}}</displayName>
-</connector>
+<component name="config" type="synapse/template">
+    <subComponents>
+        <component name="init">
+            <file>init.xml</file>
+            <description>Client Init Operation</description>
+            <hidden>true</hidden>
+        </component>
+    </subComponents>
+</component>

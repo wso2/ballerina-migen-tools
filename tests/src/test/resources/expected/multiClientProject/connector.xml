@@ -17,11 +17,12 @@
   ~ under the License.
   -->
 <connector>
-    <component name="{{sanitizeModuleName moduleName}}" package="io.ballerina.stdlib.mi">
-        {{writeConfigDependency this}}
-        {{{writeFunctionDependencies this}}}
-        <description>{{description}}</description>
+    <component name="multiClientProject" package="io.ballerina.stdlib.mi">
+        <dependency component="config"/>
+        <dependency component="ChatClient"/>
+        <dependency component="UsersClient"/>
+        <description>Ballerina multiClientProject connector</description>
     </component>
     <icon>icon/icon-small.png</icon>
-    <displayName>{{sanitizeModuleName moduleName}}</displayName>
+    <displayName>multiClientProject</displayName>
 </connector>
