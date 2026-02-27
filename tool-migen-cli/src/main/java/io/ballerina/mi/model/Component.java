@@ -91,6 +91,10 @@ public class Component extends ModelElement {
         this.originalName = originalName;
     }
 
+    public String getOriginalName() {
+        return originalName;
+    }
+
     public Connection getParent() {
         return parent;
     }
@@ -244,7 +248,9 @@ public class Component extends ModelElement {
         if (!file.exists()) {
             file.mkdirs();
         }
-        ConnectorSerializer.generateXmlForConnector(templatePath, typeName + "_template", file + File.separator + this.getName(), this);
+        String fileName = (clientFolder != null && this.originalName != null) ? this.originalName : this.getName();
+        ConnectorSerializer.generateXmlForConnector(templatePath, typeName + "_template", file +
+                File.separator + fileName, this);
     }
 
     public void generateUIJson(File connectorFolder, String templatePath, String fileName) {

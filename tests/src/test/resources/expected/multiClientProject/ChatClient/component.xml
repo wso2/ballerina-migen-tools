@@ -20,13 +20,13 @@
     <subComponents>
         <component name="ChatClient_sendMessage">
             <displayName>send message</displayName>
-            <file>ChatClient_sendMessage.xml</file>
+            <file>sendMessage.xml</file>
             <description>Send a message to a channel.
 </description>
         </component>
         <component name="ChatClient_getMessages">
             <displayName>get messages</displayName>
-            <file>ChatClient_getMessages.xml</file>
+            <file>getMessages.xml</file>
             <description>Get messages from a channel.
 </description>
         </component>
