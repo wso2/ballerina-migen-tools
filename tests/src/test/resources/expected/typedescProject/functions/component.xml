@@ -18,6 +18,11 @@
   -->
 <component name="functions" type="synapse/template">
     <subComponents>
+        <component name="receivePayload">
+            <displayName>receive payload</displayName>
+            <file>receivePayload.xml</file>
+            <description></description>
+        </component>
         <component name="processTypedescRecord">
             <displayName>process typedesc record</displayName>
             <file>processTypedescRecord.xml</file>
@@ -31,6 +36,11 @@
         <component name="processTypedescUnion">
             <displayName>process typedesc union</displayName>
             <file>processTypedescUnion.xml</file>
+            <description></description>
+        </component>
+        <component name="processTypedescAnydata">
+            <displayName>process typedesc anydata</displayName>
+            <file>processTypedescAnydata.xml</file>
             <description></description>
         </component>
         </subComponents>

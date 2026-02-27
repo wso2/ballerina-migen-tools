@@ -126,6 +126,9 @@ public class ParamHandler {
                 return getUnionParameter(paramName, context, index);
             } else if (RECORD.equals(paramType)) {
                 return DataTransformer.createRecordValue(null, paramName, context, index);
+            } else if (ANYDATA.equals(paramType)) {
+                // typedesc<anydata> with no UI input — return default TypedescValue<anydata>
+                return ValueCreator.createTypedescValue(PredefinedTypes.TYPE_ANYDATA);
             }
             return null;
         }
@@ -138,13 +141,14 @@ public class ParamHandler {
                 case FLOAT -> Double.parseDouble((String) param);
                 case DECIMAL -> ValueCreator.createDecimalValue((String) param);
                 case JSON -> DataTransformer.getJsonParameter(param);
+                case ANYDATA -> DataTransformer.getJsonParameter(param);  // anydata accepts any JSON-serializable value
                 case XML -> getBXmlParameter(context, value);
                 case RECORD -> DataTransformer.createRecordValue((String) param, paramName, context, index);
                 case ARRAY -> getArrayParameter((String) param, context, value);
                 case MAP -> DataTransformer.getMapParameter(param, context, value);
                 case UNION -> getUnionParameter(paramName, context, index);
                 case TYPEDESC -> getTypedescValue((String) param);
-                default -> getTypedescValue((String) param);
+                default -> StringUtils.fromString((String) param);
             };
             return result;
         } catch (Exception e) {
@@ -163,11 +167,13 @@ public class ParamHandler {
             case Constants.DECIMAL -> type = PredefinedTypes.TYPE_DECIMAL;
             case Constants.JSON -> type = PredefinedTypes.TYPE_JSON;
             case Constants.XML -> type = PredefinedTypes.TYPE_XML;
+            case Constants.ANYDATA -> type = PredefinedTypes.TYPE_ANYDATA;
             default -> {
                 try {
                     BMap<BString, Object> recordValue = ValueCreator.createRecordValue(BalConnectorConfig.getModule(), typeName);
                     type = recordValue.getType();
                 } catch (Exception e) {
+                    log.warn("Could not resolve type '" + typeName + "' to TypedescValue, falling back to string.");
                     return StringUtils.fromString(typeName);
                 }
             }

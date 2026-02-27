@@ -10,3 +10,5 @@ public type MessageBatch record {|
     int messageCount = 3;
     Message[] messages = [];
 |};
+
+public type Error distinct error;

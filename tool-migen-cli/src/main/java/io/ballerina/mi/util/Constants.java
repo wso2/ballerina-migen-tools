@@ -35,6 +35,7 @@ public class Constants {
     public static final String ENUM = "enum";
     public static final String MAP = "map";
     public static final String TYPEDESC = "typedesc";
+    public static final String ANYDATA = "anydata";
     public static final String FUNCTION_TEMPLATE_PATH = "balConnector" + File.separator + "functions";
     public static final String JSON_TEMPLATE_PATH = "balConnector" + File.separator + "inputTemplates";
     public static final String ATTRIBUTE_GROUP_TEMPLATE_PATH = JSON_TEMPLATE_PATH + File.separator

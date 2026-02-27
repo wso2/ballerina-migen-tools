@@ -8,3 +8,6 @@ org = "testOrg"
 groupId = "org.apache.ws.commons.axiom"
 artifactId = "axiom-api"
 version = "1.2.11-wso2v30"
+
+[[platform.java21.dependency]]
+path = "native/typedesc-native.jar"

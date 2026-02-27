@@ -83,11 +83,12 @@ public class ParamFactory {
 
     // ─── Types skipped inside typedesc<T>
     // These open/erased kinds cannot be represented in the MI UI schema:
-    //   - ANYDATA / ANY  →  no concrete type to show
-    //   - JSON           →  callers should use a plain json param instead
+    //   - ANY        →  too open, no concrete type to show
+    //   - JSON       →  callers should use a plain json param instead
+    // ANYDATA is handled separately as a json input field.
     // If the typedesc has no type parameter at all, we also skip.
     private static final java.util.Set<TypeDescKind> TYPEDESC_SKIP_KINDS = java.util.Set.of(
-            TypeDescKind.ANYDATA, TypeDescKind.ANY, TypeDescKind.JSON
+            TypeDescKind.ANY, TypeDescKind.JSON
     );
 
     /**
@@ -126,6 +127,16 @@ public class ParamFactory {
         }
 
         boolean isDefaultable = parameterSymbol.paramKind() == ParameterKind.DEFAULTABLE;
+
+        // ── ANYDATA constraint: plain JSON field — accept any Ballerina plain-data ─
+        if (constraintKind == TypeDescKind.ANYDATA) {
+            FunctionParam param = new FunctionParam(Integer.toString(index), paramName, Constants.ANYDATA);
+            param.setParamKind(parameterSymbol.paramKind());
+            param.setTypeSymbol(rawTypeSymbol);
+            param.setRequired(!isDefaultable);
+            param.setTypeDescriptor(true);
+            return Optional.of(param);
+        }
 
         // ── UNION constraint: build a combobox ───────────────────────────────────
         if (constraintKind == TypeDescKind.UNION) {

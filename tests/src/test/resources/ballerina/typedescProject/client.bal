@@ -1,3 +1,5 @@
+import ballerina/jballerina.java;
+
 public isolated client class TypedescClient {
 
     private string serviceUrl;
@@ -28,8 +30,18 @@ public isolated client class TypedescClient {
         }
     }
 
-    // Test D: Process typedesc<anydata> (should be skipped)
-    remote isolated function processTypedescAnydata(typedesc<anydata> expectedType) returns anydata {
-        return "test";
+    // Test D: Process typedesc<anydata> — accept any JSON-serializable value
+    remote isolated function processTypedescAnydata(json payload, typedesc<anydata> targetType = anydata) returns anydata|error {
+        return payload.cloneWithType(targetType);
     }
+
+    // Test E: ASB-style receivePayload — inferred typedesc with @java:Method external
+    isolated remote function receivePayload(
+            @display {label: "Server Wait Time"} int? serverWaitTime = 60,
+            @display {label: "Expected Type"} typedesc<anydata> T = <>,
+            @display {label: "Dead-Lettered Messages"} boolean deadLettered = false)
+                returns @display {label: "Message Payload"} T|error = @java:Method {
+        'class: "io.testorg.typedesc.MessageReceiver"
+    } external;
 }
+
