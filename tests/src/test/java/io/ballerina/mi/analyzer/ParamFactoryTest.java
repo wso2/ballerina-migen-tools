@@ -21,6 +21,7 @@ package io.ballerina.mi.analyzer;
 import io.ballerina.compiler.api.impl.symbols.BallerinaUnionTypeSymbol;
 import io.ballerina.compiler.api.symbols.*;
 import io.ballerina.mi.model.param.*;
+import io.ballerina.mi.util.Constants;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -544,8 +545,8 @@ public class ParamFactoryTest {
 
         Optional<FunctionParam> result = ParamFactory.createFunctionParam(paramSymbol, 0);
 
-        // ANYDATA is not a supported simple type
-        Assert.assertFalse(result.isPresent());
+        Assert.assertTrue(result.isPresent());
+        Assert.assertEquals(result.get().getParamType(), Constants.ANYDATA);
     }
 
     @Test
@@ -1745,7 +1746,9 @@ public class ParamFactoryTest {
 
         Optional<FunctionParam> result = ParamFactory.createFunctionParam(paramSymbol, 0);
 
-        Assert.assertFalse(result.isPresent());
+        Assert.assertTrue(result.isPresent());
+        Assert.assertEquals(result.get().getParamType(), Constants.ANYDATA);
+        Assert.assertTrue(result.get().isTypeDescriptor());
     }
 
     /** typedesc<> (erased / no type parameter) → Optional.empty() (operation skipped) */

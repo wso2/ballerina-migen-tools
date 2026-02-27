@@ -148,7 +148,7 @@ public class ParamHandler {
                 case MAP -> DataTransformer.getMapParameter(param, context, value);
                 case UNION -> getUnionParameter(paramName, context, index);
                 case TYPEDESC -> getTypedescValue((String) param);
-                default -> StringUtils.fromString((String) param);
+                default -> null;
             };
             return result;
         } catch (Exception e) {

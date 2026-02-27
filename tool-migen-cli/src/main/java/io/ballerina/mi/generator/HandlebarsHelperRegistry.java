@@ -91,18 +91,10 @@ public final class HandlebarsHelperRegistry {
             return options.inverse();
         });
         handlebar.registerHelper("not", (context, options) -> {
-            boolean isTrue = false;
-            // Handle context resolution, typically context is a Boolean object if invoked logically
             if (context instanceof Boolean booleanContext) {
-                isTrue = booleanContext;
-            } else if (context != null) {
-                isTrue = true;
+                return !booleanContext;
             }
-            if (!isTrue) {
-                return options.fn();
-            } else {
-                return options.inverse();
-            }
+            return true;
         });
         handlebar.registerHelper("checkFuncType", (context, options) -> {
             FunctionType functionType = (FunctionType) context;
