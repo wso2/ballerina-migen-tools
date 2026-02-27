@@ -307,13 +307,13 @@ public class ConnectorSerializer {
     // ─── Generation Report ────────────────────────────────────────────────────
 
     /**
-     * Writes the generation report to {@code generation-report.txt} in the target directory
+     * Writes the generation report to {@code generation-report.log} in the target directory
      * and prints it to the console.
      */
     private void writeGenerationReport(GenerationReport report) {
         String reportText = report.toText();
         printStream.println(reportText);
-        Path reportPath = targetPath.resolve("generation-report.txt");
+        Path reportPath = targetPath.resolve("generation-report.log");
         try {
             Files.writeString(reportPath, reportText, StandardCharsets.UTF_8);
             printStream.println("Generation report saved to: " + reportPath);

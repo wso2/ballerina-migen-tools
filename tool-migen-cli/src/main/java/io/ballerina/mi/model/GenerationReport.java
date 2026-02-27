@@ -25,7 +25,7 @@ import java.util.List;
  * Captures the status of a connector generation run.
  * <p>
  * Populated by the connector/module analyzers during analysis and written to a
- * {@code generation-report.txt} file by the serializer after artifact generation.
+ * {@code generation-report.log} file by the serializer after artifact generation.
  * The report lists all clients that were found, which operations were included in
  * the connector, and which were skipped along with the reason.
  */
@@ -123,7 +123,7 @@ public class GenerationReport {
 
     /**
      * Formats the report as a human-readable text block suitable for console output
-     * and writing to {@code generation-report.txt}.
+     * and writing to {@code generation-report.log}.
      */
     public String toText() {
         StringBuilder sb = new StringBuilder();
