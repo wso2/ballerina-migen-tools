@@ -20,20 +20,24 @@
     <parameter name="name" description="Unique name the connection is identified by"/>
     <parameter name="connectionType" description="Connection type"/>
     <!-- TODO: if union, the selected member type becomes a parameter-->
-    {{writeAllConfigXmlParameters connections}}
+    <parameter name="baseUrl" description=""/>
     <sequence>
-        {{#each connections ~}}
-        <property name="{{uppercase connectionType}}_objectTypeName" value="{{objectTypeName}}"/>
-        {{#each initComponent.params ~}}
-        <property name="{{uppercase ../connectionType}}_{{key}}" value="{{value}}"/>
-        {{/each ~}}
-        {{writeConfigXmlParamProperties this}}
-        {{/each ~}}
-        
+        <property name="MULTICLIENTPROJECT_CHATCLIENT_objectTypeName" value="ChatClient"/>
+        <property name="MULTICLIENTPROJECT_CHATCLIENT_paramSize" value="1"/>
+        <property name="MULTICLIENTPROJECT_CHATCLIENT_paramFunctionName" value="init"/>
+        <property name="MULTICLIENTPROJECT_CHATCLIENT_param0" value="baseUrl"/>
+        <property name="MULTICLIENTPROJECT_CHATCLIENT_paramType0" value="string"/>
+
+        <property name="MULTICLIENTPROJECT_USERSCLIENT_objectTypeName" value="UsersClient"/>
+        <property name="MULTICLIENTPROJECT_USERSCLIENT_paramSize" value="1"/>
+        <property name="MULTICLIENTPROJECT_USERSCLIENT_paramFunctionName" value="init"/>
+        <property name="MULTICLIENTPROJECT_USERSCLIENT_param0" value="baseUrl"/>
+        <property name="MULTICLIENTPROJECT_USERSCLIENT_paramType0" value="string"/>
+
         <class name="io.ballerina.stdlib.mi.BalConnectorConfig">
-            <property name="orgName" value="{{orgName}}"/>
-            <property name="moduleName" value="{{moduleName}}"/>
-            <property name="version" value="{{majorVersion}}"/>
+            <property name="orgName" value="testOrg"/>
+            <property name="moduleName" value="multiClientProject"/>
+            <property name="version" value="1"/>
         </class>
     </sequence>
 </template>

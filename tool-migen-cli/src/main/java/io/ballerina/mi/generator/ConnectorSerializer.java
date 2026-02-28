@@ -24,6 +24,7 @@ import com.github.jknack.handlebars.io.ClassPathTemplateLoader;
 import io.ballerina.mi.model.Component;
 import io.ballerina.mi.model.Connection;
 import io.ballerina.mi.model.Connector;
+import io.ballerina.mi.model.GenerationReport;
 import io.ballerina.mi.model.ModelElement;
 import io.ballerina.mi.util.Constants;
 import io.ballerina.mi.util.JsonTemplateBuilder;
@@ -37,6 +38,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -167,6 +169,9 @@ public class ConnectorSerializer {
         // Pre-compute TypeSymbol-derived values and release heavy compiler references
         connector.clearTypeSymbols();
 
+        // Detect multi-client modules and apply per-client name prefixing
+        connector.applyMultiClientLayout();
+
         ResourceLifecycleManager lifecycle = new ResourceLifecycleManager();
 
         try {
@@ -191,6 +196,9 @@ public class ConnectorSerializer {
             // Phase 3: Generate aggregate XML files
             generateAggregateXmls(connector, connectorFolder);
 
+            // Capture report before lifecycle clears the connector
+            GenerationReport report = connector.getGenerationReport();
+
             // Cleanup init component FunctionParams
             for (Connection connection : connector.getConnections()) {
                 if (connection.getInitComponent() != null) {
@@ -201,6 +209,11 @@ public class ConnectorSerializer {
 
             // Phase 4: Copy resources and package
             copyResourcesAndPackage(connector, destinationPath, lifecycle);
+
+            // Phase 5: Write generation report
+            if (report != null) {
+                writeGenerationReport(report);
+            }
 
         } catch (IOException | URISyntaxException e) {
             throw new RuntimeException(e);
@@ -216,8 +229,9 @@ public class ConnectorSerializer {
         int totalComponents = connector.getComponents().size();
         int processed = 0;
         for (Connection connection : connector.getConnections()) {
+            String clientFolder = connector.isMultiClient() ? connection.getObjectTypeName() : null;
             for (Component component : connection.getComponents()) {
-                component.generateTemplateXml(connectorFolder, FUNCTION_TEMPLATE_PATH, "functions");
+                component.generateTemplateXml(connectorFolder, FUNCTION_TEMPLATE_PATH, "functions", clientFolder);
                 component.generateUIJson(connectorFolder, FUNCTION_TEMPLATE_PATH, component.getName());
                 lifecycle.register(component.getFunctionParams()::clear);
                 processed++;
@@ -251,7 +265,11 @@ public class ConnectorSerializer {
     private void generateAggregateXmls(Connector connector, File connectorFolder) {
         System.out.println("Generating aggregate XML files...");
         connector.generateInstanceXml(connectorFolder);
-        connector.generateFunctionsXml(connectorFolder, Constants.FUNCTION_TEMPLATE_PATH, "functions");
+        if (connector.isMultiClient()) {
+            connector.generatePerClientFunctionsXml(connectorFolder, Constants.FUNCTION_TEMPLATE_PATH);
+        } else {
+            connector.generateFunctionsXml(connectorFolder, Constants.FUNCTION_TEMPLATE_PATH, "functions");
+        }
         if (!connector.isBalModule()) {
             connector.generateConfigInstanceXml(connectorFolder, CONFIG_TEMPLATE_PATH, "config");
             connector.generateConfigTemplateXml(connectorFolder, CONFIG_TEMPLATE_PATH, "config");
@@ -292,6 +310,24 @@ public class ConnectorSerializer {
         System.out.println("Packaging connector ZIP... (heap: " + usedMB + "MB used / " + maxMB + "MB max)");
         Utils.zipFolder(destinationPath, zipFilePath);
         System.out.println("Connector ZIP created successfully.");
+    }
+
+    // ─── Generation Report ────────────────────────────────────────────────────
+
+    /**
+     * Writes the generation report to {@code generation-report.log} in the target directory
+     * and prints it to the console.
+     */
+    private void writeGenerationReport(GenerationReport report) {
+        String reportText = report.toText();
+        printStream.println(reportText);
+        Path reportPath = targetPath.resolve("generation-report.log");
+        try {
+            Files.writeString(reportPath, reportText, StandardCharsets.UTF_8);
+            printStream.println("Generation report saved to: " + reportPath);
+        } catch (IOException e) {
+            printStream.println("WARNING: Failed to write generation report: " + e.getMessage());
+        }
     }
 
     // ─── File Generation (Template Rendering) ─────────────────────────────────

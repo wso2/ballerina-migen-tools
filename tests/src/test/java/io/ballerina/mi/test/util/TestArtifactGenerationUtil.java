@@ -47,6 +47,7 @@ public class TestArtifactGenerationUtil {
             case "nestedRecordConflictProject" -> generateNestedRecordConflictProjectExpectedArtifacts();
             case "tableProject" -> generateTableProjectExpectedArtifacts();
             case "typedescProject" -> generateTypedescProjectExpectedArtifacts();
+            case "multiClientProject" -> generateBalaProjectExpectedArtifacts("multiClientProject");
             case "central" -> generateCentralExpectedArtifacts(resolveCentralPackages());
             default -> printUsageAndExit();
         }
@@ -406,7 +407,7 @@ public class TestArtifactGenerationUtil {
     private static void printUsageAndExit() {
         System.err.println("Usage: gradle :mi-tests:generateExpectedArtifacts "
                 + "-PartifactTarget=<project1|project2|project3|project4|project5|project6|project7|unionProject|"
-                + "nestedRecordConflictProject|tableProject|typedescProject|central> "
+                + "nestedRecordConflictProject|tableProject|multiClientProject|typedescProject|central> "
                 + "[-PcentralPackage=<org/name:version,org2/name2:version2,...>]");
         System.exit(1);
     }

@@ -193,6 +193,29 @@ public final class HandlebarsHelperRegistry {
             }
             return new Handlebars.SafeString(output);
         });
+        handlebar.registerHelper("writeAllConfigXmlParameters", (context, options) -> {
+            @SuppressWarnings("unchecked")
+            List<Connection> connections = (List<Connection>) context;
+            if (connections == null) {
+                return new Handlebars.SafeString("");
+            }
+            StringBuilder result = new StringBuilder();
+            boolean[] isFirst = {true};
+            Set<String> processedParams = new HashSet<>();
+            for (Connection connection : connections) {
+                if (connection.getInitComponent() != null) {
+                    List<FunctionParam> functionParams = connection.getInitComponent().getFunctionParams();
+                    for (FunctionParam functionParam : functionParams) {
+                        XmlPropertyWriter.writeXmlParameterElements(functionParam, result, isFirst, processedParams);
+                    }
+                }
+            }
+            String output = result.toString();
+            if (output.endsWith("\n    ")) {
+                output = output.substring(0, output.length() - 5);
+            }
+            return new Handlebars.SafeString(output);
+        });
         handlebar.registerHelper("writeConfigXmlParamProperties", (context, options) -> {
             Connection connection = (Connection) context;
             StringBuilder result = new StringBuilder();
@@ -422,6 +445,19 @@ public final class HandlebarsHelperRegistry {
                 return new Handlebars.SafeString("<dependency component=\"config\"/>");
             }
             return new Handlebars.SafeString("");
+        });
+        handlebar.registerHelper("writeFunctionDependencies", (context, options) -> {
+            Connector connector = (Connector) context;
+            if (connector.isMultiClient()) {
+                StringBuilder result = new StringBuilder();
+                for (Connection connection : connector.getConnections()) {
+                    result.append("<dependency component=\"")
+                            .append(connection.getObjectTypeName())
+                            .append("\"/>\n        ");
+                }
+                return new Handlebars.SafeString(result.toString().trim());
+            }
+            return new Handlebars.SafeString("<dependency component=\"functions\"/>");
         });
         handlebar.registerHelper("unwrapOptional", ((context, options) -> {
             if (context instanceof Optional<?> optional) {
