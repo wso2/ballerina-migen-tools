@@ -169,8 +169,13 @@ public class ParamHandler {
             case Constants.XML -> type = PredefinedTypes.TYPE_XML;
             case Constants.ANYDATA -> type = PredefinedTypes.TYPE_ANYDATA;
             default -> {
+                io.ballerina.runtime.api.Module module = BalConnectorConfig.getModule();
+                if (module == null) {
+                    log.warn("Module not available, cannot resolve type '" + typeName + "' to TypedescValue, falling back to string.");
+                    return StringUtils.fromString(typeName);
+                }
                 try {
-                    BMap<BString, Object> recordValue = ValueCreator.createRecordValue(BalConnectorConfig.getModule(), typeName);
+                    BMap<BString, Object> recordValue = ValueCreator.createRecordValue(module, typeName);
                     type = recordValue.getType();
                 } catch (Exception e) {
                     log.warn("Could not resolve type '" + typeName + "' to TypedescValue, falling back to string.");
