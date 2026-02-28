@@ -84,11 +84,10 @@ public class ParamFactory {
     // ─── Types skipped inside typedesc<T>
     // These open/erased kinds cannot be represented in the MI UI schema:
     //   - ANY        →  too open, no concrete type to show
-    //   - JSON       →  callers should use a plain json param instead
     // ANYDATA is handled separately as a json input field.
     // If the typedesc has no type parameter at all, we also skip.
     private static final java.util.Set<TypeDescKind> TYPEDESC_SKIP_KINDS = java.util.Set.of(
-            TypeDescKind.ANY, TypeDescKind.JSON
+            TypeDescKind.ANY
     );
 
     /**
