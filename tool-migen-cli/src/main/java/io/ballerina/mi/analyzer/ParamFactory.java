@@ -19,8 +19,22 @@
 package io.ballerina.mi.analyzer;
 
 import io.ballerina.compiler.api.impl.symbols.BallerinaUnionTypeSymbol;
-import io.ballerina.compiler.api.symbols.*;
-import io.ballerina.mi.model.param.*;
+import io.ballerina.compiler.api.symbols.ArrayTypeSymbol;
+import io.ballerina.compiler.api.symbols.MapTypeSymbol;
+import io.ballerina.compiler.api.symbols.ParameterKind;
+import io.ballerina.compiler.api.symbols.ParameterSymbol;
+import io.ballerina.compiler.api.symbols.RecordFieldSymbol;
+import io.ballerina.compiler.api.symbols.RecordTypeSymbol;
+import io.ballerina.compiler.api.symbols.TypeDescKind;
+import io.ballerina.compiler.api.symbols.TypeDescTypeSymbol;
+import io.ballerina.compiler.api.symbols.TypeSymbol;
+import io.ballerina.compiler.api.symbols.UnionTypeSymbol;
+import io.ballerina.mi.model.param.ArrayFunctionParam;
+import io.ballerina.mi.model.param.FunctionParam;
+import io.ballerina.mi.model.param.IncludedRecordFunctionParam;
+import io.ballerina.mi.model.param.MapFunctionParam;
+import io.ballerina.mi.model.param.RecordFunctionParam;
+import io.ballerina.mi.model.param.UnionFunctionParam;
 import io.ballerina.mi.util.Constants;
 import io.ballerina.mi.util.Utils;
 import org.apache.commons.lang3.StringUtils;
