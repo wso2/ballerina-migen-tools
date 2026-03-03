@@ -350,8 +350,10 @@ public class ParamFactory {
                 .orElse(paramName);
         includedRecordParam.setRecordName(recordName);
 
-        // Included record parameters are implicitly optional - callers can omit all fields
-        includedRecordParam.setRequired(false);
+        // Set required based on parameter kind (same logic as regular record params)
+        if (parameterSymbol.paramKind() == ParameterKind.DEFAULTABLE) {
+            includedRecordParam.setRequired(false);
+        }
 
         // Extract record fields if the actual type is a RecordTypeSymbol
         if (actualTypeSymbol instanceof RecordTypeSymbol recordTypeSymbol) {
