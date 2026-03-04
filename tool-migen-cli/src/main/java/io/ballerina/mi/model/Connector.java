@@ -328,6 +328,11 @@ public class Connector extends ModelElement {
                     }
                 }
             }
+
+            @Override
+            public void visit(EnumFunctionParam param) {
+                // Enum params have no children to collect
+            }
         };
 
         while (!stack.isEmpty()) {

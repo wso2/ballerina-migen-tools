@@ -69,4 +69,11 @@ public interface FunctionParamVisitor {
      * @param param The map function parameter
      */
     void visit(MapFunctionParam param);
+
+    /**
+     * Visits an enum-typed function parameter.
+     *
+     * @param param The enum function parameter
+     */
+    void visit(EnumFunctionParam param);
 }
