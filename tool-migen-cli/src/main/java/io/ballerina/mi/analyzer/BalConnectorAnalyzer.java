@@ -490,13 +490,6 @@ public class BalConnectorAnalyzer implements Analyzer {
             return;
         }
 
-        // Skip client if no init method exists
-        if (connection.getInitComponent() == null) {
-            String message = String.format("Skipping client '%s': no init method found.", clientClassName);
-            printStream.println(message);
-            return;
-        }
-
         if (skippedOperations > 0) {
             String message = String.format("WARNING: %d out of %d operations were skipped due to " +
                             "unsupported parameter types for '%s'.",
@@ -509,6 +502,13 @@ public class BalConnectorAnalyzer implements Analyzer {
             report.addClientReport(clientReport);
         }
 
+        if (connection.getInitComponent() == null && !connection.getComponents().isEmpty()) {
+            Component defaultInitComponent = new Component(Constants.INIT_FUNCTION_NAME,
+                    "Default initializer for " + connectionType, FunctionType.INIT, "0",
+                    List.of(), List.of(), null);
+            defaultInitComponent.setParam(new Param("paramSize", "0"));
+            connection.setInitComponent(defaultInitComponent);
+        }
         connector.setConnection(connection);
     }
 
