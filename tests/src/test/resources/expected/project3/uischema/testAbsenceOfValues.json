@@ -8,10 +8,7 @@
       "type": "attributeGroup",
       "value": {
         "groupName": "General",
-        "groupName": "General",
         "elements": [
-          {
-            "type": "attributeGroup",
           {
             "type": "attributeGroup",
             "value": {
