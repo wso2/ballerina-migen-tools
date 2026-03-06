@@ -184,6 +184,22 @@ public class JsonGenerator {
                 boolAttr.setEnableCondition(functionParam.getEnableCondition());
                 builder.addFromTemplate(ATTRIBUTE_TEMPLATE_PATH, boolAttr);
                 break;
+            case ENUM:
+                if (functionParam instanceof EnumFunctionParam enumParam) {
+                    StringJoiner enumJoiner = new StringJoiner(",", "[", "]");
+                    for (String val : enumParam.getEnumValues()) {
+                        enumJoiner.add("\"" + val + "\"");
+                    }
+                    String enumComboValues = enumJoiner.toString();
+                    String enumDefault = (defaultValue != null && !defaultValue.isEmpty())
+                            ? defaultValue : enumParam.getEnumValues().get(0);
+                    Combo enumCombo = new Combo(sanitizedParamName, displayName,
+                            INPUT_TYPE_COMBO, enumComboValues, enumDefault,
+                            functionParam.isRequired(), functionParam.getEnableCondition(),
+                            functionParam.getDescription());
+                    builder.addFromTemplate(COMBO_TEMPLATE_PATH, enumCombo);
+                }
+                break;
             case UNION:
                 if (!(functionParam instanceof UnionFunctionParam unionFunctionParam)) {
                     throw new IllegalArgumentException("FunctionParam with paramType 'union' must be an instance of UnionFunctionParam for parameter: " + functionParam.getValue());

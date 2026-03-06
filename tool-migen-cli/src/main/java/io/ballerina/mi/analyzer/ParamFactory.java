@@ -30,6 +30,7 @@ import io.ballerina.compiler.api.symbols.TypeDescTypeSymbol;
 import io.ballerina.compiler.api.symbols.TypeSymbol;
 import io.ballerina.compiler.api.symbols.UnionTypeSymbol;
 import io.ballerina.mi.model.param.ArrayFunctionParam;
+import io.ballerina.mi.model.param.EnumFunctionParam;
 import io.ballerina.mi.model.param.FunctionParam;
 import io.ballerina.mi.model.param.IncludedRecordFunctionParam;
 import io.ballerina.mi.model.param.MapFunctionParam;
@@ -39,6 +40,8 @@ import io.ballerina.mi.util.Constants;
 import io.ballerina.mi.util.Utils;
 import org.apache.commons.lang3.StringUtils;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -73,6 +76,10 @@ public class ParamFactory {
 
         if (paramType != null) {
             if (actualTypeKind == TypeDescKind.UNION) {
+                TypeSymbol actualTypeSymbol = Utils.getActualTypeSymbol(typeSymbol);
+                if (actualTypeSymbol instanceof UnionTypeSymbol unionType && isEnumUnion(unionType)) {
+                    return createEnumFunctionParam(parameterSymbol, index, unionType);
+                }
                 return createUnionFunctionParam(parameterSymbol, index);
             }
             if (actualTypeKind == TypeDescKind.RECORD) {
@@ -414,30 +421,40 @@ public class ParamFactory {
 
                 // Handle different field types appropriately
                 if (fieldTypeKind == TypeDescKind.UNION) {
-                    // Create UnionFunctionParam for union type fields
-                    UnionFunctionParam unionFieldParam = new UnionFunctionParam(Integer.toString(fieldIndex), qualifiedFieldName, fieldType);
-                    unionFieldParam.setTypeSymbol(fieldTypeSymbol);
-                    // Set required status BEFORE recursion so it propagates to members
-                    unionFieldParam.setRequired(isEffectiveRequired);
-
-                    TypeSymbol actualTypeSymbol = Utils.getActualTypeSymbol(fieldTypeSymbol);
-                    if (actualTypeSymbol instanceof BallerinaUnionTypeSymbol ballerinaUnionTypeSymbol) {
-                        // Use qualifiedFieldName to ensure enable conditions are properly scoped for nested fields
-                        populateUnionMemberParams(qualifiedFieldName, ballerinaUnionTypeSymbol, unionFieldParam, fieldBudget);
-                    }
-                    // Skip empty unions (all members are nil or unsupported types)
-                    if (unionFieldParam.getUnionMemberParams().isEmpty()) {
-                        fieldBudget[0]++; // Refund the budget for skipped field
-                        continue;
-                    }
-                    // If there's only one non-nil member, convert to a regular FunctionParam instead of UnionFunctionParam
-                    if (unionFieldParam.getUnionMemberParams().size() == 1 && !(unionFieldParam.getUnionMemberParams().getFirst() instanceof UnionFunctionParam)) {
-                        FunctionParam singleMember = unionFieldParam.getUnionMemberParams().getFirst();
-                        fieldParam = new FunctionParam(Integer.toString(fieldIndex), qualifiedFieldName, singleMember.getParamType());
-                        fieldParam.setTypeSymbol(singleMember.getTypeSymbol());
-                        fieldParam.setRequired(unionFieldParam.isRequired());
+                    TypeSymbol actualEnumCheck = Utils.getActualTypeSymbol(fieldTypeSymbol);
+                    if (actualEnumCheck instanceof UnionTypeSymbol enumUnionType && isEnumUnion(enumUnionType)) {
+                        List<String> enumValues = extractEnumValues(enumUnionType);
+                        EnumFunctionParam enumFieldParam = new EnumFunctionParam(
+                                Integer.toString(fieldIndex), qualifiedFieldName, enumValues);
+                        enumFieldParam.setTypeSymbol(fieldTypeSymbol);
+                        enumFieldParam.setRequired(isEffectiveRequired);
+                        fieldParam = enumFieldParam;
                     } else {
-                        fieldParam = unionFieldParam;
+                        // Create UnionFunctionParam for union type fields
+                        UnionFunctionParam unionFieldParam = new UnionFunctionParam(Integer.toString(fieldIndex), qualifiedFieldName, fieldType);
+                        unionFieldParam.setTypeSymbol(fieldTypeSymbol);
+                        // Set required status BEFORE recursion so it propagates to members
+                        unionFieldParam.setRequired(isEffectiveRequired);
+
+                        TypeSymbol actualTypeSymbol = Utils.getActualTypeSymbol(fieldTypeSymbol);
+                        if (actualTypeSymbol instanceof BallerinaUnionTypeSymbol ballerinaUnionTypeSymbol) {
+                            // Use qualifiedFieldName to ensure enable conditions are properly scoped for nested fields
+                            populateUnionMemberParams(qualifiedFieldName, ballerinaUnionTypeSymbol, unionFieldParam, fieldBudget);
+                        }
+                        // Skip empty unions (all members are nil or unsupported types)
+                        if (unionFieldParam.getUnionMemberParams().isEmpty()) {
+                            fieldBudget[0]++; // Refund the budget for skipped field
+                            continue;
+                        }
+                        // If there's only one non-nil member, convert to a regular FunctionParam instead of UnionFunctionParam
+                        if (unionFieldParam.getUnionMemberParams().size() == 1 && !(unionFieldParam.getUnionMemberParams().getFirst() instanceof UnionFunctionParam)) {
+                            FunctionParam singleMember = unionFieldParam.getUnionMemberParams().getFirst();
+                            fieldParam = new FunctionParam(Integer.toString(fieldIndex), qualifiedFieldName, singleMember.getParamType());
+                            fieldParam.setTypeSymbol(singleMember.getTypeSymbol());
+                            fieldParam.setRequired(unionFieldParam.isRequired());
+                        } else {
+                            fieldParam = unionFieldParam;
+                        }
                     }
                 } else if (fieldTypeKind == TypeDescKind.RECORD) {
                     // Create RecordFunctionParam for nested record fields
@@ -881,5 +898,57 @@ public class ParamFactory {
             return fieldName;
         }
         return parentPath + "." + fieldName;
+    }
+
+    static boolean isEnumUnion(UnionTypeSymbol unionTypeSymbol) {
+        boolean hasNonNilMember = false;
+        for (TypeSymbol member : unionTypeSymbol.memberTypeDescriptors()) {
+            TypeDescKind kind = Utils.getActualTypeKind(member);
+            if (kind == TypeDescKind.NIL) {
+                continue;
+            }
+            if (kind != TypeDescKind.SINGLETON) {
+                return false;
+            }
+            hasNonNilMember = true;
+        }
+        return hasNonNilMember;
+    }
+
+    /**
+     * Extracts enum member values from a union of singletons.
+     * Singleton signatures are string literals like {@code "queue"} — surrounding quotes are stripped.
+     */
+    static List<String> extractEnumValues(UnionTypeSymbol unionTypeSymbol) {
+        List<String> values = new ArrayList<>();
+        for (TypeSymbol member : unionTypeSymbol.memberTypeDescriptors()) {
+            TypeDescKind kind = Utils.getActualTypeKind(member);
+            if (kind == TypeDescKind.NIL) {
+                continue;
+            }
+            String value = member.signature();
+            // Strip surrounding double quotes from string singleton signatures
+            if (value.startsWith("\"") && value.endsWith("\"") && value.length() >= 2) {
+                value = value.substring(1, value.length() - 1);
+            }
+            values.add(value);
+        }
+        return values;
+    }
+
+    /**
+     * Creates an {@link EnumFunctionParam} for a top-level enum parameter.
+     */
+    private static Optional<FunctionParam> createEnumFunctionParam(ParameterSymbol parameterSymbol, int index,
+                                                                   UnionTypeSymbol unionTypeSymbol) {
+        String paramName = parameterSymbol.getName().orElseThrow();
+        List<String> enumValues = extractEnumValues(unionTypeSymbol);
+        EnumFunctionParam enumParam = new EnumFunctionParam(Integer.toString(index), paramName, enumValues);
+        enumParam.setParamKind(parameterSymbol.paramKind());
+        enumParam.setTypeSymbol(parameterSymbol.typeDescriptor());
+        if (parameterSymbol.paramKind() == ParameterKind.DEFAULTABLE) {
+            enumParam.setRequired(false);
+        }
+        return Optional.of(enumParam);
     }
 }
