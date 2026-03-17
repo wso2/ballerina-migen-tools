@@ -24,7 +24,6 @@ import io.ballerina.runtime.api.Runtime;
 import io.ballerina.runtime.api.async.Callback;
 import io.ballerina.runtime.api.async.StrandMetadata;
 import io.ballerina.runtime.api.values.*;
-import io.ballerina.runtime.internal.values.MapValueImpl;
 import io.ballerina.stdlib.mi.*;
 import io.ballerina.stdlib.mi.utils.SynapseUtils;
 import org.apache.axis2.AxisFault;
@@ -201,7 +200,16 @@ public class BalExecutor {
         if (result instanceof BDecimal) return ((BDecimal) result).value().toString();
         if (result instanceof BString) return ((BString) result).getValue();
         if (result instanceof BArray) return JsonParser.parseString(TypeConverter.arrayToJsonString((BArray) result));
-        if (result instanceof BMap) return JsonParser.parseString(((MapValueImpl<?, ?>) result).getJSONString());
+        if (result instanceof BMap) {
+            // In Ballerina 2201.10.0, generated record types implement BMap but getJSONString() may return empty
+            // Use stringValue(null) or fallback to toString() which returns valid JSON
+            BMap<?, ?> bMap = (BMap<?, ?>) result;
+            String jsonStr = bMap.stringValue(null);
+            if (jsonStr == null || jsonStr.isEmpty()) {
+                jsonStr = result.toString();
+            }
+            return JsonParser.parseString(jsonStr);
+        }
         if (result instanceof Long || result instanceof Integer || result instanceof Boolean || result instanceof Double || result instanceof Float) {
             return JsonParser.parseString(result.toString());
         }
