@@ -97,6 +97,14 @@ public class ConnectorCmd implements BLauncherCmd {
             try {
                 resolvedSource = io.ballerina.mi.util.CentralPackagePuller.pullAndExtractPackage(
                         org, name, version, Paths.get(target));
+            } catch (io.ballerina.mi.util.PackageNotCompatibleException e) {
+                printStream.println();
+                printStream.println("ERROR: Package not compatible with migen tool");
+                printStream.println("============================================================");
+                printStream.println(e.getMessage());
+                printStream.println();
+                printStream.println("Tip: Use 'bal search <package-name>' to find available packages.");
+                return;
             } catch (Exception e) {
                 printStream.println("ERROR: Failed to download package " + packageId + " - " + e.getMessage());
                 return;

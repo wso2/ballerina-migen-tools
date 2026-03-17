@@ -88,9 +88,16 @@ public class CentralPackagePuller {
             connection.setConnectTimeout(CONNECT_TIMEOUT_MS);
             connection.setReadTimeout(READ_TIMEOUT_MS);
 
-            if (connection.getResponseCode() != 200) {
+            int responseCode = connection.getResponseCode();
+            if (responseCode == 404) {
+                throw new PackageNotCompatibleException(org + "/" + name + ":" + version,
+                        "Package '" + org + "/" + name + ":" + version + "' not found in Ballerina Central.\n" +
+                        "This package may not exist or may not be compatible with the current migen tool.\n" +
+                        "Please verify the package name and version, or try a different version.");
+            }
+            if (responseCode != 200) {
                 throw new RuntimeException("Failed to fetch package details from Ballerina Central. HTTP code: "
-                        + connection.getResponseCode());
+                        + responseCode);
             }
 
             JsonObject responseJson;
@@ -170,9 +177,16 @@ public class CentralPackagePuller {
             connection.setConnectTimeout(CONNECT_TIMEOUT_MS);
             connection.setReadTimeout(READ_TIMEOUT_MS);
 
-            if (connection.getResponseCode() != 200) {
+            int responseCode = connection.getResponseCode();
+            if (responseCode == 404) {
+                throw new PackageNotCompatibleException(org + "/" + name,
+                        "Package '" + org + "/" + name + "' not found in Ballerina Central.\n" +
+                        "This package may not exist or may not be compatible with the current migen tool.\n" +
+                        "Please verify the package name exists in Ballerina Central.");
+            }
+            if (responseCode != 200) {
                 throw new RuntimeException("Failed to fetch package versions from Ballerina Central. HTTP code: "
-                        + connection.getResponseCode());
+                        + responseCode);
             }
 
             JsonArray versionsArray;
@@ -180,7 +194,9 @@ public class CentralPackagePuller {
                 versionsArray = JsonParser.parseReader(reader).getAsJsonArray();
             }
             if (versionsArray.isEmpty()) {
-                throw new RuntimeException("No versions found for package " + org + "/" + name);
+                throw new PackageNotCompatibleException(org + "/" + name,
+                        "No versions available for package '" + org + "/" + name + "' in Ballerina Central.\n" +
+                        "This package may not be compatible with the current migen tool.");
             }
 
             return versionsArray.get(0).getAsString();
