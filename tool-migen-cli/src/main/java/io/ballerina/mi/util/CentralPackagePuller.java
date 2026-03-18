@@ -21,10 +21,12 @@ package io.ballerina.mi.util;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import org.wso2.ballerinalang.util.RepoUtils;
 
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -36,6 +38,7 @@ import java.util.zip.ZipInputStream;
 public class CentralPackagePuller {
 
     private static final String CENTRAL_API_VERSION_URL = "https://api.central.ballerina.io/2.0/registry/packages/%s/%s";
+    private static final String CENTRAL_API_VERSION_FILTERED_URL = "https://api.central.ballerina.io/2.0/registry/packages/%s/%s?ballerina_version=%s";
     private static final String CENTRAL_API_URL = "https://api.central.ballerina.io/2.0/registry/packages/%s/%s/%s";
 
     /** TCP connect timeout for all Central API calls (10 s). */
@@ -169,7 +172,16 @@ public class CentralPackagePuller {
     }
 
     private static String fetchLatestVersion(String org, String name) throws Exception {
-        String apiUrl = String.format(CENTRAL_API_VERSION_URL, org, name);
+        String ballerinaVersion = RepoUtils.getBallerinaVersion();
+        String apiUrl;
+
+        if (ballerinaVersion != null) {
+            apiUrl = String.format(CENTRAL_API_VERSION_FILTERED_URL, org, name,
+                    URLEncoder.encode(ballerinaVersion, StandardCharsets.UTF_8.name()));
+        } else {
+            apiUrl = String.format(CENTRAL_API_VERSION_URL, org, name);
+        }
+
         HttpURLConnection connection = (HttpURLConnection) new URL(apiUrl).openConnection();
         try {
             connection.setRequestMethod("GET");
@@ -194,9 +206,13 @@ public class CentralPackagePuller {
                 versionsArray = JsonParser.parseReader(reader).getAsJsonArray();
             }
             if (versionsArray.isEmpty()) {
+                String versionMsg = ballerinaVersion != null
+                        ? " compatible with Ballerina " + ballerinaVersion
+                        : "";
                 throw new PackageNotCompatibleException(org + "/" + name,
-                        "No versions available for package '" + org + "/" + name + "' in Ballerina Central.\n" +
-                        "This package may not be compatible with the current migen tool.");
+                        "No versions available for package '" + org + "/" + name + "'" + versionMsg + " in Ballerina Central.\n" +
+                        "This package may not be compatible with the current migen tool.\n" +
+                        (ballerinaVersion != null ? "Your Ballerina version: " + ballerinaVersion : ""));
             }
 
             return versionsArray.get(0).getAsString();
