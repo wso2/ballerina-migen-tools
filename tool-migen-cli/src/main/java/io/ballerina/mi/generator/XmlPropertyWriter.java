@@ -153,6 +153,14 @@ public final class XmlPropertyWriter {
                     connectionType, indexHolder[0], RECORD));
             result.append(String.format("\n        <property name=\"%s_param%d_recordName\" value=\"%s\"/>",
                     connectionType, indexHolder[0], recordParam.getRecordName()));
+            if (recordParam.getRecordOrg() != null) {
+                result.append(String.format("\n        <property name=\"%s_param%d_recordOrg\" value=\"%s\"/>",
+                        connectionType, indexHolder[0], recordParam.getRecordOrg()));
+            }
+            if (recordParam.getRecordModule() != null) {
+                result.append(String.format("\n        <property name=\"%s_param%d_recordModule\" value=\"%s\"/>",
+                        connectionType, indexHolder[0], recordParam.getRecordModule()));
+            }
             isFirst[0] = false;
             indexHolder[0]++;
 

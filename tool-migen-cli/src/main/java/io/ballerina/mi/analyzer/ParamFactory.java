@@ -312,6 +312,12 @@ public class ParamFactory {
                 .orElse(paramName);
         recordParam.setRecordName(recordName);
 
+        // Set module info for the record type
+        actualTypeSymbol.getModule().ifPresent(moduleSymbol -> {
+            recordParam.setRecordOrg(moduleSymbol.id().orgName());
+            recordParam.setRecordModule(moduleSymbol.id().moduleName());
+        });
+
         // Set required based on parameter kind
         if (parameterSymbol.paramKind() == ParameterKind.DEFAULTABLE) {
             recordParam.setRequired(false);
