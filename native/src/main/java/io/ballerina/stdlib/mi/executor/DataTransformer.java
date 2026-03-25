@@ -345,14 +345,23 @@ public class DataTransformer {
     }
     
     public static Object getJsonParameter(Object param) {
-        if (param instanceof String strParam) {
+        String strParam;
+        if (param instanceof String) {
+            strParam = (String) param;
             if (strParam.startsWith("'") && strParam.endsWith("'")) {
                 strParam = strParam.substring(1, strParam.length() - 1);
             }
-            return JsonUtils.parse(strParam);
         } else {
-            return JsonUtils.parse(param.toString());
+            strParam = param.toString();
         }
+
+        // Try parsing as JSON - handles int, float, boolean, objects, arrays, and quoted strings
+        Object parsed = JsonUtils.parse(strParam);
+        if (parsed instanceof BError) {
+            // JSON parsing failed - treat as plain string (e.g., unquoted text for anydata type)
+            return StringUtils.fromString(strParam);
+        }
+        return parsed;
     }
     
     public static BMap getMapParameter(Object param, MessageContext context, String valueKey) {
