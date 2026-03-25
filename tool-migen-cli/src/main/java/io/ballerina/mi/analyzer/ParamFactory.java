@@ -530,6 +530,8 @@ public class ParamFactory {
                             TypeSymbol actualElementType = Utils.getActualTypeSymbol(elementType);
                             if (actualElementType instanceof RecordTypeSymbol recordType) {
                                 populateArrayElementFields(arrayFieldParam, recordType);
+                                // Enable dual input mode (Table/JSON) for record arrays
+                                arrayFieldParam.setSupportsDualInputMode(true);
                             }
                         }
                         if (shouldRender && elementTypeKind == TypeDescKind.ARRAY) {
@@ -767,6 +769,8 @@ public class ParamFactory {
                     TypeSymbol actualElementType = Utils.getActualTypeSymbol(elementType);
                     if (actualElementType instanceof RecordTypeSymbol recordTypeSymbol) {
                         populateArrayElementFields(arrayParam, recordTypeSymbol);
+                        // Enable dual input mode (Table/JSON) for record arrays
+                        arrayParam.setSupportsDualInputMode(true);
                     }
                 } else if (elementTypeKind == TypeDescKind.ARRAY) {
                     // 2D array (e.g., string[][], int[][]) - extract inner element type

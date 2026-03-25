@@ -705,6 +705,12 @@ public class JsonGenerator {
         }
         displayName = Utils.sanitizeParamName(displayName);
 
+        // Check if dual input mode is supported (Table/JSON selector)
+        if (arrayParam.supportsDualInputMode()) {
+            writeArrayWithDualInputMode(arrayParam, builder, paramName, displayName);
+            return;
+        }
+
         List<Element> tableColumns = new ArrayList<>();
 
         if (arrayParam.getElementFieldParams() != null && !arrayParam.getElementFieldParams().isEmpty()) {
@@ -737,6 +743,82 @@ public class JsonGenerator {
         );
 
         builder.addFromTemplate(TABLE_TEMPLATE_PATH, table);
+    }
+
+    /**
+     * Writes array parameter with dual input mode support.
+     * Generates: 1) Mode selector combo, 2) Table with enableCondition, 3) JSON text field with enableCondition.
+     */
+    private static void writeArrayWithDualInputMode(ArrayFunctionParam arrayParam, JsonTemplateBuilder builder,
+                                                     String paramName, String displayName) throws IOException {
+        String modeFieldName = paramName + "InputMode";
+        String tableEnableCondition = "[{\"" + modeFieldName + "\": \"Table\"}]";
+        String jsonEnableCondition = "[{\"" + modeFieldName + "\": \"JSON\"}]";
+
+        // 1. Generate mode selector combo
+        Combo modeSelector = new Combo(
+            modeFieldName,
+            displayName + " Input Mode",
+            INPUT_TYPE_COMBO,
+            "[\"Table\", \"JSON\"]",
+            "Table",
+            true,
+            arrayParam.getEnableCondition(),
+            "Choose input mode: Table for interactive entry, JSON for array expression"
+        );
+        builder.addFromTemplate(COMBO_TEMPLATE_PATH, modeSelector);
+        builder.addSeparator(ATTRIBUTE_SEPARATOR);
+
+        // 2. Generate table with enableCondition for "Table" mode
+        List<Element> tableColumns = new ArrayList<>();
+        if (arrayParam.getElementFieldParams() != null && !arrayParam.getElementFieldParams().isEmpty()) {
+            for (FunctionParam elementField : arrayParam.getElementFieldParams()) {
+                Attribute column = createAttributeForElementField(elementField);
+                tableColumns.add(column);
+            }
+        } else {
+            Attribute column = createSimpleElementColumn(arrayParam);
+            tableColumns.add(column);
+        }
+
+        String description = arrayParam.getDescription() != null ?
+            arrayParam.getDescription() :
+            "Configure " + displayName + " entries";
+
+        String tableKey = tableColumns.isEmpty() ? "" : tableColumns.get(0).getName();
+        String tableValue = tableColumns.size() < 2 ? tableKey : tableColumns.get(tableColumns.size() - 1).getName();
+
+        Table table = new Table(
+            paramName,
+            displayName,
+            displayName,
+            description,
+            tableKey,
+            tableValue,
+            tableColumns,
+            tableEnableCondition,
+            arrayParam.isRequired()
+        );
+        builder.addFromTemplate(TABLE_TEMPLATE_PATH, table);
+        builder.addSeparator(ATTRIBUTE_SEPARATOR);
+
+        // 3. Generate JSON text field with enableCondition for "JSON" mode
+        String jsonFieldName = paramName + "Json";
+        String jsonHelpTip = "Enter JSON array of " + displayName + " objects. " +
+            "Example: [{\"field1\": \"value1\", ...}, ...]";
+        Attribute jsonField = new Attribute(
+            jsonFieldName,
+            displayName + " (JSON Array)",
+            INPUT_TYPE_STRING_OR_EXPRESSION,
+            "",
+            arrayParam.isRequired(),
+            jsonHelpTip,
+            JSON,
+            "",
+            false
+        );
+        jsonField.setEnableCondition(jsonEnableCondition);
+        builder.addFromTemplate(ATTRIBUTE_TEMPLATE_PATH, jsonField);
     }
 
     private static void writeNestedArrayAsTable(ArrayFunctionParam arrayParam, JsonTemplateBuilder builder,

@@ -19,11 +19,16 @@
 <template xmlns="http://ws.apache.org/ns/synapse" name="applyTags">
     <parameter name="responseVariable" description="The target variable in which the output of the operation will be stored"/>
     <parameter name="overwriteBody" description="Replace the Message Body in Message Context with the output payload of the operation"/>
+    <parameter name="tagListInputMode" description="Input mode for tagList: Table or JSON"/>
+    <parameter name="tagListJson" description="JSON array input for tagList"/>
     <parameter name="tagList" description=""/>
     <sequence>
         <property name="param0" value="tagList"/>
         <property name="paramType0" value="array"/>
         <property name="arrayElementType0" value="record"/>
+        <property name="param0_dualMode" value="true"/>
+        <property name="param0_inputModeField" value="tagListInputMode"/>
+        <property name="param0_jsonField" value="tagListJson"/>
         <property name="paramSize" value="1"/>
         <property name="paramFunctionName" value="applyTags"/>
         <property name="returnType" value="union"/>
