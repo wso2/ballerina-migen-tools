@@ -12,6 +12,5 @@ version = "1.2.11-wso2v30"
 [[dependency]]
 org = "wso2"
 name = "mi"
-version = "0.4.1"
-repository = "local"
+version = "1.0.0"
 
