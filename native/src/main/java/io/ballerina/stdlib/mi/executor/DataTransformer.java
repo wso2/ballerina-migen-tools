@@ -22,6 +22,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
+import io.ballerina.runtime.api.Module;
+import io.ballerina.runtime.api.TypeTags;
 import io.ballerina.runtime.api.creators.ValueCreator;
 import io.ballerina.runtime.api.types.*;
 import io.ballerina.runtime.api.utils.JsonUtils;
@@ -101,12 +103,18 @@ public class DataTransformer {
             String connectionType = SynapseUtils.findConnectionTypeForParam(context, recordParamName);
             String propertyPrefix;
             String recordNamePropertyKey;
+            String recordOrgPropertyKey;
+            String recordModulePropertyKey;
             if (connectionType != null) {
                 propertyPrefix = connectionType + "_" + recordParamName;
                 recordNamePropertyKey = connectionType + "_param" + paramIndex + "_recordName";
+                recordOrgPropertyKey = connectionType + "_param" + paramIndex + "_recordOrg";
+                recordModulePropertyKey = connectionType + "_param" + paramIndex + "_recordModule";
             } else {
                 propertyPrefix = recordParamName;
                 recordNamePropertyKey = "param" + paramIndex + "_recordName";
+                recordOrgPropertyKey = "param" + paramIndex + "_recordOrg";
+                recordModulePropertyKey = "param" + paramIndex + "_recordModule";
             }
 
             Object reconstructedBMap = reconstructRecordFromFields(propertyPrefix, context);
@@ -116,7 +124,10 @@ public class DataTransformer {
                         ". Ensure '" + recordNamePropertyKey + "' property is set in the synapse template.");
             }
             String recordName = recordNameObj.toString();
-            BMap<BString, Object> recValue = ValueCreator.createRecordValue(BalConnectorConfig.getModule(), recordName);
+
+            // Get module info - use external module if specified, otherwise use connector module
+            Module recordModule = getRecordModule(context, recordOrgPropertyKey, recordModulePropertyKey);
+            BMap<BString, Object> recValue = ValueCreator.createRecordValue(recordModule, recordName);
             Type recType = recValue.getType();
 
             if (reconstructedBMap instanceof BError bError) {
@@ -145,15 +156,19 @@ public class DataTransformer {
         Object recordNameObj = context.getProperty("param" + paramIndex + "_recordName");
         if (recordNameObj != null) {
             String recordName = recordNameObj.toString();
+            String recordOrgPropertyKey = "param" + paramIndex + "_recordOrg";
+            String recordModulePropertyKey = "param" + paramIndex + "_recordModule";
+            Module recordModule = getRecordModule(context, recordOrgPropertyKey, recordModulePropertyKey);
+
             try {
                 BString jsonBString = StringUtils.fromString(jsonString);
-                BMap<BString, Object> recValue = ValueCreator.createRecordValue(BalConnectorConfig.getModule(), recordName);
+                BMap<BString, Object> recValue = ValueCreator.createRecordValue(recordModule, recordName);
                 Type recType = recValue.getType();
                 return FromJsonStringWithType.fromJsonStringWithType(jsonBString, ValueCreator.createTypedescValue(recType));
             } catch (Exception e) {
                 try {
                     Object parseResult = JsonUtils.parse(jsonString);
-                    BMap<BString, Object> emptyRecord = ValueCreator.createRecordValue(BalConnectorConfig.getModule(), recordName);
+                    BMap<BString, Object> emptyRecord = ValueCreator.createRecordValue(recordModule, recordName);
                     Type targetType = emptyRecord.getType();
                     return convertValueToType(parseResult, targetType);
                 } catch (Exception deepEx) {
@@ -577,5 +592,26 @@ public class DataTransformer {
             }
         }
         return resultMap;
+    }
+
+    /**
+     * Gets the appropriate Module for creating a record value.
+     * If recordOrg and recordModule properties are set, creates a Module from them.
+     * Otherwise, falls back to the connector's module.
+     */
+    private static Module getRecordModule(MessageContext context, String recordOrgPropertyKey, String recordModulePropertyKey) {
+        Object recordOrgObj = context.getProperty(recordOrgPropertyKey);
+        Object recordModuleObj = context.getProperty(recordModulePropertyKey);
+
+        if (recordOrgObj != null && recordModuleObj != null) {
+            String recordOrg = recordOrgObj.toString();
+            String recordModuleName = recordModuleObj.toString();
+            // For external modules (like ballerina/time), create a new Module
+            if (!recordOrg.isEmpty() && !recordModuleName.isEmpty()) {
+                return new Module(recordOrg, recordModuleName, null);
+            }
+        }
+        // Fall back to connector module
+        return BalConnectorConfig.getModule();
     }
 }
