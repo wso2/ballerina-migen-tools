@@ -141,6 +141,8 @@ public class ResourcePackager {
         Path nativeSrcDest = destination.resolve(NATIVE_SRC_RESOURCE_PATH);
         Files.createDirectories(nativeSrcDest);
 
+        System.out.println("Copying native sources from: " + jarPath + " (scheme: " + jarPath.getScheme() + ")");
+
         if ("file".equals(jarPath.getScheme())) {
             // Running from IDE/Classes directory - try to find sources in project
             Path classesPath = Paths.get(jarPath);
@@ -162,9 +164,14 @@ public class ResourcePackager {
             URI uri = URI.create("jar:" + jarPath.toString());
             try (FileSystem fs = FileSystems.newFileSystem(uri, Collections.emptyMap())) {
                 Path srcPath = fs.getPath(NATIVE_SRC_RESOURCE_PATH);
+                System.out.println("Looking for native-src in JAR: " + srcPath + " exists: " + Files.exists(srcPath));
                 if (Files.exists(srcPath)) {
                     copyResourcesByExtension(classLoader, fs, destination, NATIVE_SRC_RESOURCE_PATH, ".java");
+                    System.out.println("Native sources copied to: " + destination.resolve(NATIVE_SRC_RESOURCE_PATH));
                 }
+            } catch (Exception e) {
+                System.out.println("Failed to copy native sources: " + e.getMessage());
+                e.printStackTrace();
             }
         }
     }
