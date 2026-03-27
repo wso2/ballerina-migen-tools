@@ -43,6 +43,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -303,7 +304,7 @@ public class DataTransformerTest {
                 Assert.assertTrue(json.contains("\"isReady\":true"));
                 Assert.assertTrue(json.contains("\"count\":42"));
                 Assert.assertTrue(json.contains("\"score\":3.14"));
-                Assert.assertTrue(json.contains("\"price\":10.50"));
+                Assert.assertTrue(json.contains("\"price\":10.5"));
                 return expectedBallerinaRecord;
             });
 
@@ -1648,7 +1649,7 @@ public class DataTransformerTest {
             MessageContext context = mock(MessageContext.class);
             synapseUtilsMock.when(() -> SynapseUtils.findConnectionTypeForParam(context, "param0"))
                     .thenReturn("http");
-            dataTransformerMock.when(() -> DataTransformer.reconstructRecordFromFields("http_param0", context))
+            dataTransformerMock.when(() -> DataTransformer.reconstructRecordFromFields(eq("http_param0"), eq(context), anyBoolean()))
                     .thenReturn("not-a-map");
             when(context.getProperty("http_param0_recordName")).thenReturn("Rec");
             BMap<BString, Object> record = mock(BMap.class);

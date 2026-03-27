@@ -210,6 +210,25 @@ public class ParamHandler {
             return null;
         }
 
+        // Check if dual input mode is enabled (Table/JSON selector)
+        String dualModeEnabled = SynapseUtils.getPropertyAsString(context, "param" + paramIndex + "_dualMode");
+        if ("true".equals(dualModeEnabled)) {
+            String inputModeFieldName = SynapseUtils.getPropertyAsString(context, "param" + paramIndex + "_inputModeField");
+            if (inputModeFieldName != null) {
+                Object inputModeValue = SynapseUtils.lookupTemplateParameter(context, inputModeFieldName);
+                if ("JSON".equals(inputModeValue)) {
+                    // User selected JSON mode - read from JSON field instead of table
+                    String jsonFieldName = SynapseUtils.getPropertyAsString(context, "param" + paramIndex + "_jsonField");
+                    if (jsonFieldName != null) {
+                        Object jsonFieldValue = SynapseUtils.lookupTemplateParameter(context, jsonFieldName);
+                        if (jsonFieldValue != null && !jsonFieldValue.toString().isEmpty()) {
+                            jsonArrayString = jsonFieldValue.toString();
+                        }
+                    }
+                }
+            }
+        }
+
         String elementType = context.getProperty("arrayElementType" + paramIndex).toString();
 
         String cleanedJson = SynapseUtils.cleanupJsonString(jsonArrayString);

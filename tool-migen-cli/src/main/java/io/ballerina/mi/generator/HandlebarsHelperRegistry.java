@@ -464,6 +464,13 @@ public final class HandlebarsHelperRegistry {
                     .map(FunctionParam::getValue)
                     .collect(Collectors.joining(","));
         });
+        // Helper to check if array supports dual input mode (Table/JSON)
+        handlebar.registerHelper("isDualModeArray", (context, options) -> {
+            if (!(context instanceof ArrayFunctionParam arrayParam)) {
+                return false;
+            }
+            return arrayParam.supportsDualInputMode();
+        });
     }
 
     // ─── Miscellaneous Helpers ────────────────────────────────────────────────
