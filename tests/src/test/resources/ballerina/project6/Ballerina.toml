@@ -3,8 +3,3 @@ version = "1.0.0"
 distribution = "2201.13.1"
 name = "project6"
 org = "testOrg"
-[[dependency]]
-org = "wso2"
-name = "mi"
-version = "1.0.0"
-

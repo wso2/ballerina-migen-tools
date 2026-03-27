@@ -6,8 +6,3 @@ version = "0.1.0"
 [build-options]
 observabilityIncluded = true
 
-[[dependency]]
-org = "wso2"
-name = "mi"
-version = "1.0.0"
-
