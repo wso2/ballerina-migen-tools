@@ -537,10 +537,9 @@ public class DataTransformer {
                 jsonObject.addProperty(finalField, Double.parseDouble(valueStr));
                 break;
             case DECIMAL:
-                // Use double to ensure decimal point in JSON serialization
-                // This ensures Ballerina JsonUtils parses it as a decimal, not integer
-                java.math.BigDecimal bd = new java.math.BigDecimal(valueStr);
-                jsonObject.addProperty(finalField, bd.doubleValue());
+                // Pass BigDecimal directly to preserve full precision
+                // Gson's addProperty(String, Number) supports BigDecimal since it extends Number
+                jsonObject.addProperty(finalField, new java.math.BigDecimal(valueStr));
                 break;
             case ENUM:
                 // Handle ZERO_OR_ONE type (0|1) as integers, other enums as strings
