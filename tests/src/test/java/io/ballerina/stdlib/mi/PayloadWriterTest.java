@@ -47,17 +47,14 @@ public class PayloadWriterTest {
 
     @Test
     public void testOverwriteBody_NullPayload() throws AxisFault {
-        try (MockedStatic<JsonUtil> jsonUtilMock = Mockito.mockStatic(JsonUtil.class)) {
-            Axis2MessageContext synCtx = mock(Axis2MessageContext.class);
-            org.apache.axis2.context.MessageContext axis2MsgCtx = mock(org.apache.axis2.context.MessageContext.class);
-            when(synCtx.getAxis2MessageContext()).thenReturn(axis2MsgCtx);
+        Axis2MessageContext synCtx = mock(Axis2MessageContext.class);
+        org.apache.axis2.context.MessageContext axis2MsgCtx = mock(org.apache.axis2.context.MessageContext.class);
 
-            PayloadWriter.overwriteBody(synCtx, null);
+        PayloadWriter.overwriteBody(synCtx, null);
 
-            // Verify no interactions when payload is null - method returns early
-            jsonUtilMock.verifyNoInteractions();
-            verifyNoInteractions(axis2MsgCtx);
-        }
+        // Verify no interactions when payload is null - method returns early
+        verifyNoInteractions(synCtx);
+        verifyNoInteractions(axis2MsgCtx);
     }
 
     @Test
