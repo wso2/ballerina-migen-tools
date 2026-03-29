@@ -752,8 +752,13 @@ public class JsonGenerator {
     private static void writeArrayWithDualInputMode(ArrayFunctionParam arrayParam, JsonTemplateBuilder builder,
                                                      String paramName, String displayName) throws IOException {
         String modeFieldName = paramName + "InputMode";
-        String tableEnableCondition = "[{\"" + modeFieldName + "\": \"Table\"}]";
-        String jsonEnableCondition = "[{\"" + modeFieldName + "\": \"JSON\"}]";
+        String tableModeCondition = "[{\"" + modeFieldName + "\": \"Table\"}]";
+        String jsonModeCondition = "[{\"" + modeFieldName + "\": \"JSON\"}]";
+
+        // Combine parent enable condition with mode check using mergeEnableConditions (AND logic)
+        String parentCondition = arrayParam.getEnableCondition();
+        String tableEnableCondition = mergeEnableConditions(parentCondition, tableModeCondition);
+        String jsonEnableCondition = mergeEnableConditions(parentCondition, jsonModeCondition);
 
         // 1. Generate mode selector combo
         Combo modeSelector = new Combo(
