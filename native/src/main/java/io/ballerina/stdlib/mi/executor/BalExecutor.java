@@ -153,10 +153,7 @@ public class BalExecutor {
                     }
                 } else {
                     String functionName = SynapseUtils.getPropertyAsString(context, Constants.FUNCTION_NAME);
-                    // Convert arguments to expected types using method signature info
-                    BObject bObject = (BObject) callable;
-                    Object[] convertedArgs = convertArgsToExpectedTypes(bObject, functionName, args);
-                    result = invokeMethodSync(rt, bObject, functionName, convertedArgs);
+                    result = rt.callMethod((BObject) callable, functionName, null, args);
                 }
             } else {
                 throw new SynapseException("Unsupported callable type: " + callable.getClass().getName());
@@ -209,17 +206,5 @@ public class BalExecutor {
 
     private static boolean isOverwriteBody(MessageContext context) {
         return Boolean.parseBoolean((String) SynapseUtils.lookupTemplateParameter(context, Constants.OVERWRITE_BODY));
-    }
-
-    /**
-     * Converts arguments to their expected types based on method signature.
-     * This is used to convert generic BMaps to typed records for external module types.
-     */
-    private Object[] convertArgsToExpectedTypes(BObject bObject, String methodName, Object[] args) {
-        Object[] converted = new Object[args.length];
-        for (int i = 0; i < args.length; i++) {
-            converted[i] = DataTransformer.convertToExpectedType(args[i], bObject, methodName, i);
-        }
-        return converted;
     }
 }
