@@ -172,6 +172,50 @@ public final class XmlPropertyWriter {
             for (FunctionParam fieldParam : recordParam.getRecordFieldParams()) {
                 writeRecordFieldParamProperties(fieldParam, connectionType, recordParamName, result, fieldIndexHolder);
             }
+        } else if (functionParam instanceof UnionFunctionParam unionParam && !unionParam.isTypeDescriptor()) {
+            // Init-context union parameter (e.g. DestinationConfig|map<string>).
+            // Write: paramN / paramTypeN / dataTypeN (discriminator key) then, for each union member,
+            // write the member pointer property and — for record members — all flattened field properties.
+            if (!isFirst[0]) {
+                result.append("\n        ");
+            }
+            int currentIndex = indexHolder[0];
+            String sanitizedParamName = Utils.sanitizeParamName(unionParam.getValue());
+
+            result.append(String.format("<property name=\"%s_param%d\" value=\"%s\"/>",
+                    connectionType, currentIndex, unionParam.getValue()));
+            result.append(String.format("\n        <property name=\"%s_paramType%d\" value=\"%s\"/>",
+                    connectionType, currentIndex, unionParam.getParamType()));
+            result.append(String.format("\n        <property name=\"%s_dataType%d\" value=\"%s\"/>",
+                    connectionType, currentIndex, sanitizedParamName + "DataType"));
+            isFirst[0] = false;
+            indexHolder[0]++;
+
+            for (FunctionParam memberParam : unionParam.getUnionMemberParams()) {
+                if (memberParam instanceof RecordFunctionParam recordMemberParam) {
+                    String memberTypeName = recordMemberParam.getDisplayTypeName();
+                    if (memberTypeName == null || memberTypeName.isEmpty()) {
+                        memberTypeName = recordMemberParam.getRecordName();
+                    }
+                    if (memberTypeName == null || memberTypeName.isEmpty()) {
+                        continue;
+                    }
+                    String capitalizedTypeName = org.apache.commons.lang3.StringUtils.capitalize(memberTypeName);
+                    String recordParamName = sanitizedParamName + "_" + memberTypeName;
+                    // e.g. SAP_JCO_CLIENT_param0UnionDestinationConfig = configurations_DestinationConfig
+                    result.append(String.format("\n        <property name=\"%s_param%dUnion%s\" value=\"%s\"/>",
+                            connectionType, currentIndex, capitalizedTypeName, recordParamName));
+                    int[] fieldIndexHolder = {0};
+                    for (FunctionParam fieldParam : recordMemberParam.getRecordFieldParams()) {
+                        writeRecordFieldParamPropertiesWithUnionMember(fieldParam, connectionType, recordParamName,
+                                result, fieldIndexHolder, memberTypeName);
+                    }
+                } else if ("map".equals(memberParam.getParamType())) {
+                    // e.g. SAP_JCO_CLIENT_param0UnionMap = configurations_map
+                    result.append(String.format("\n        <property name=\"%s_param%dUnionMap\" value=\"%s_map\"/>",
+                            connectionType, currentIndex, sanitizedParamName));
+                }
+            }
         } else {
             if (!isFirst[0]) {
                 result.append("\n        ");
