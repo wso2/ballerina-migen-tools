@@ -179,6 +179,18 @@ public class DataTransformer {
     }
 
     public static Object createRecordValue(String jsonString, String paramName, MessageContext context, int paramIndex) {
+        return createRecordValue(jsonString, paramName, context, paramIndex, null);
+    }
+
+    /**
+     * Creates a Ballerina record value from either a JSON string or flattened context properties.
+     *
+     * @param recordTypeHint optional record type name (e.g. "DestinationConfig") used when the context does not
+     *                       carry a {@code _recordName} property — typically for union members whose record type
+     *                       is known at the call site but not stored in the Synapse template properties.
+     */
+    public static Object createRecordValue(String jsonString, String paramName, MessageContext context,
+                                           int paramIndex, String recordTypeHint) {
         if (jsonString == null) {
             String recordParamName = paramName;
             String connectionType = SynapseUtils.findConnectionTypeForParam(context, recordParamName);
@@ -202,7 +214,10 @@ public class DataTransformer {
             }
 
             Object recordNameObj = context.getProperty(recordNamePropertyKey);
-            String recordName = recordNameObj != null ? recordNameObj.toString() : null;
+            // Fall back to the caller-supplied type hint when the context property is absent.
+            // This covers union members (e.g. DestinationConfig) stored as flattened fields where
+            // the init template does not emit a separate _recordName property.
+            String recordName = recordNameObj != null ? recordNameObj.toString() : recordTypeHint;
             Module recordModule = getRecordModule(context, recordOrgPropertyKey, recordModulePropertyKey, recordVersionPropertyKey);
 
             // First, try to create a typed record to see if it's possible
@@ -225,8 +240,8 @@ public class DataTransformer {
                 throw new SynapseException("Failed to reconstruct record: " + bError.getMessage());
             }
 
-            if (recordNameObj == null) {
-                // No record name - return the reconstructed map as-is
+            if (recordName == null) {
+                // No record name available — return the reconstructed map as-is
                 if (reconstructedBMap instanceof BMap) {
                     return reconstructedBMap;
                 }
@@ -354,7 +369,10 @@ public class DataTransformer {
                 String sanitizedFieldPath = fieldPath.replace(".", "_");
                 Object unionValue = SynapseUtils.lookupTemplateParameter(context, sanitizedFieldPath);
                 if (unionValue != null) {
-                     setNestedField(recordJson, fieldPath, unionValue, fieldType, context, propertyPrefix, fieldIndex);
+                    String unionJsonKey = (unionMemberType != null && fieldPath.contains("."))
+                            ? fieldPath.substring(fieldPath.lastIndexOf('.') + 1)
+                            : fieldPath;
+                     setNestedField(recordJson, unionJsonKey, unionValue, fieldType, context, propertyPrefix, fieldIndex);
                      fieldIndex++;
                      continue;
                 }
@@ -400,6 +418,15 @@ public class DataTransformer {
                 }
             }
 
+            // When building JSON for a union member record (e.g. DestinationConfig), the field path stored
+            // in the property value includes the parent union param name as a dot-notation prefix
+            // (e.g. "configurations.ashost"). We must use only the leaf field name ("ashost") as the JSON
+            // key so that the resulting JSON matches the record's own field names and FromJsonStringWithType
+            // can convert it to a typed record. The full path is still used above for context lookup.
+            String jsonKey = (unionMemberType != null && fieldPath.contains("."))
+                    ? fieldPath.substring(fieldPath.lastIndexOf('.') + 1)
+                    : fieldPath;
+
             if (fieldValue != null) {
                 String valueStr = fieldValue.toString();
                 if ((MAP.equals(fieldType) || ARRAY.equals(fieldType)) && "[]".equals(valueStr)) {
@@ -412,11 +439,11 @@ public class DataTransformer {
                     fieldIndex++;
                     continue;
                 }
-                setNestedField(recordJson, fieldPath, fieldValue, fieldType, context, propertyPrefix, fieldIndex);
+                setNestedField(recordJson, jsonKey, fieldValue, fieldType, context, propertyPrefix, fieldIndex);
             } else if (setDefaultsForMissingFields && (DECIMAL.equals(fieldType) || INT.equals(fieldType))) {
                 // Set default value of 0 for numeric fields that aren't provided
                 // This prevents null pointer exceptions when Ballerina code accesses these fields in generic BMaps
-                setNestedField(recordJson, fieldPath, "0", fieldType, context, propertyPrefix, fieldIndex);
+                setNestedField(recordJson, jsonKey, "0", fieldType, context, propertyPrefix, fieldIndex);
             }
             fieldIndex++;
         }

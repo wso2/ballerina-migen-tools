@@ -659,6 +659,115 @@ public class ParamHandlerTest {
     }
 
     @Test
+    public void testGetParameter_PrefixedUnionParamPattern() {
+        try (MockedStatic<SynapseUtils> synapseUtilsMock = Mockito.mockStatic(SynapseUtils.class);
+             MockedStatic<StringUtils> stringUtilsMock = Mockito.mockStatic(StringUtils.class)) {
+
+            MessageContext context = mock(MessageContext.class);
+            ParamHandler handler = new ParamHandler();
+
+            // Simulate BalConnectorConfig calling getParameter with connection-type prefix (e.g., SAP_JCO_CLIENT_)
+            synapseUtilsMock.when(() -> SynapseUtils.getPropertyAsString(context, "SAP_JCO_CLIENT_param0"))
+                    .thenReturn("configurations");
+            synapseUtilsMock.when(() -> SynapseUtils.getPropertyAsString(context, "SAP_JCO_CLIENT_paramType0"))
+                    .thenReturn(Constants.UNION);
+            synapseUtilsMock.when(() -> SynapseUtils.lookupTemplateParameter(context, "configurations"))
+                    .thenReturn(null);
+
+            // Union discriminator returns "string" (map case simplification for test)
+            synapseUtilsMock.when(() -> SynapseUtils.lookupTemplateParameter(context, "configurationsDataType"))
+                    .thenReturn("string");
+
+            // getUnionParameter constructs "SAP_JCO_CLIENT_param0UnionString" — must be found
+            synapseUtilsMock.when(() -> SynapseUtils.getPropertyAsString(context, "SAP_JCO_CLIENT_param0UnionString"))
+                    .thenReturn("configurationsString");
+            synapseUtilsMock.when(() -> SynapseUtils.lookupTemplateParameter(context, "configurationsString"))
+                    .thenReturn("hello");
+
+            BString mockBString = mock(BString.class);
+            stringUtilsMock.when(() -> StringUtils.fromString("hello")).thenReturn(mockBString);
+
+            Object result = handler.getParameter(context, "SAP_JCO_CLIENT_param0", "SAP_JCO_CLIENT_paramType0", 0);
+            Assert.assertEquals(result, mockBString);
+        }
+    }
+
+    @Test
+    public void testGetParameter_PrefixedUnionParam_CustomRecordType_NullParam() {
+        // Reproduces: "Cannot invoke BMap.getType() because jcoDestinationConfig is null"
+        // When the union member is a custom record type (e.g. "DestinationConfig") stored as flattened
+        // context fields, param is null. createRecordValue must be called with the type name hint so
+        // it can produce a typed BMap (not a generic one) — without this, Ballerina's
+        // "configurations is DestinationConfig" check fails and jcoDestinationConfig is null.
+        try (MockedStatic<SynapseUtils> synapseUtilsMock = Mockito.mockStatic(SynapseUtils.class);
+             MockedStatic<DataTransformer> dataTransformerMock = Mockito.mockStatic(DataTransformer.class)) {
+
+            MessageContext context = mock(MessageContext.class);
+            ParamHandler handler = new ParamHandler();
+
+            // BalConnectorConfig calls getParameter("SAP_JCO_CLIENT_param0", "SAP_JCO_CLIENT_paramType0", 0)
+            synapseUtilsMock.when(() -> SynapseUtils.getPropertyAsString(context, "SAP_JCO_CLIENT_param0"))
+                    .thenReturn("configurations");
+            synapseUtilsMock.when(() -> SynapseUtils.getPropertyAsString(context, "SAP_JCO_CLIENT_paramType0"))
+                    .thenReturn(Constants.UNION);
+            synapseUtilsMock.when(() -> SynapseUtils.lookupTemplateParameter(context, "configurations"))
+                    .thenReturn(null);
+
+            // Discriminator says the selected union member type is "DestinationConfig" (custom record)
+            synapseUtilsMock.when(() -> SynapseUtils.lookupTemplateParameter(context, "configurationsDataType"))
+                    .thenReturn("DestinationConfig");
+
+            // getUnionParameter constructs "SAP_JCO_CLIENT_param0UnionDestinationConfig"
+            synapseUtilsMock.when(() -> SynapseUtils.getPropertyAsString(context, "SAP_JCO_CLIENT_param0UnionDestinationConfig"))
+                    .thenReturn("jcoDestinationConfig");
+            // The record is stored as flattened fields — direct lookup returns null
+            synapseUtilsMock.when(() -> SynapseUtils.lookupTemplateParameter(context, "jcoDestinationConfig"))
+                    .thenReturn(null);
+
+            Object mockRecord = new Object();
+            // Must be called with the 5-arg form so the type hint "DestinationConfig" is forwarded
+            dataTransformerMock.when(() -> DataTransformer.createRecordValue(
+                            null, "jcoDestinationConfig", context, -1, "DestinationConfig"))
+                    .thenReturn(mockRecord);
+
+            Object result = handler.getParameter(context, "SAP_JCO_CLIENT_param0", "SAP_JCO_CLIENT_paramType0", 0);
+            Assert.assertEquals(result, mockRecord,
+                    "Expected typed record from createRecordValue hint when union member is a custom record type");
+        }
+    }
+
+    @Test
+    public void testGetParameter_PrefixedUnionParam_PrimitiveType_NullParam_ReturnsNull() {
+        // Verify that a primitive union member with null param still returns null (not a BMap)
+        try (MockedStatic<SynapseUtils> synapseUtilsMock = Mockito.mockStatic(SynapseUtils.class)) {
+
+            MessageContext context = mock(MessageContext.class);
+            ParamHandler handler = new ParamHandler();
+
+            synapseUtilsMock.when(() -> SynapseUtils.getPropertyAsString(context, "SAP_JCO_CLIENT_param0"))
+                    .thenReturn("configurations");
+            synapseUtilsMock.when(() -> SynapseUtils.getPropertyAsString(context, "SAP_JCO_CLIENT_paramType0"))
+                    .thenReturn(Constants.UNION);
+            synapseUtilsMock.when(() -> SynapseUtils.lookupTemplateParameter(context, "configurations"))
+                    .thenReturn(null);
+
+            // Discriminator selects "string" — primitive type
+            synapseUtilsMock.when(() -> SynapseUtils.lookupTemplateParameter(context, "configurationsDataType"))
+                    .thenReturn(Constants.STRING);
+
+            synapseUtilsMock.when(() -> SynapseUtils.getPropertyAsString(context, "SAP_JCO_CLIENT_param0UnionString"))
+                    .thenReturn("configurationsString");
+            // String param also not provided
+            synapseUtilsMock.when(() -> SynapseUtils.lookupTemplateParameter(context, "configurationsString"))
+                    .thenReturn(null);
+
+            // "string" is a known primitive type — isCustomRecordType returns false — must return null
+            Object result = handler.getParameter(context, "SAP_JCO_CLIENT_param0", "SAP_JCO_CLIENT_paramType0", 0);
+            Assert.assertNull(result, "Primitive union member with null param must return null, not a BMap");
+        }
+    }
+
+    @Test
     public void testPrependPathParams_WithFloatType() {
         try (MockedStatic<SynapseUtils> synapseUtilsMock = Mockito.mockStatic(SynapseUtils.class)) {
             MessageContext context = mock(MessageContext.class);
