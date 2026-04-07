@@ -408,7 +408,7 @@ public class DataTransformer {
                     // When building a parent record (OneDrive ConnectionConfig), the path IS the correct
                     // nested key (e.g. "auth") — keep it so setNestedField creates proper nesting.
                     String unionJsonKey = (isDirectUnionMemberRecord && unionMemberType != null && fieldPath.contains("."))
-                            ? fieldPath.substring(fieldPath.lastIndexOf('.') + 1)
+                            ? fieldPath.substring(fieldPath.indexOf('.') + 1)
                             : fieldPath;
                      setNestedField(recordJson, unionJsonKey, unionValue, fieldType, context, propertyPrefix, fieldIndex);
                      fieldIndex++;
@@ -466,7 +466,7 @@ public class DataTransformer {
             // key (e.g. "auth.token" → {"auth":{"token":"…"}}) — keep it so setNestedField creates
             // the right nesting level inside the parent record.
             String jsonKey = (isDirectUnionMemberRecord && unionMemberType != null && fieldPath.contains("."))
-                    ? fieldPath.substring(fieldPath.lastIndexOf('.') + 1)
+                    ? fieldPath.substring(fieldPath.indexOf('.') + 1)
                     : fieldPath;
 
             if (fieldValue != null) {
