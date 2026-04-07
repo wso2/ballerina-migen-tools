@@ -112,7 +112,7 @@ public class ParamHandler {
         Object param = SynapseUtils.lookupTemplateParameter(context, paramName);
 
         String paramType;
-        if (value.matches("param\\d+Union.*")) {
+        if (value.matches("(?:.*_)?param\\d+Union.*")) {
             paramType = type;
         } else {
             paramType = SynapseUtils.getPropertyAsString(context, type);
@@ -121,9 +121,10 @@ public class ParamHandler {
                 paramType = Constants.STRING;
             }
         }
+        String paramPrefix = extractParamKeyPrefix(value);
         if (param == null) {
             if (UNION.equals(paramType)) {
-                return getUnionParameter(paramName, context, index);
+                return getUnionParameter(paramName, context, index, paramPrefix);
             } else if (RECORD.equals(paramType)) {
                 return DataTransformer.createRecordValue(null, paramName, context, index);
             } else if (ANYDATA.equals(paramType)) {
@@ -155,7 +156,7 @@ public class ParamHandler {
                 case RECORD -> DataTransformer.createRecordValue((String) param, paramName, context, index);
                 case ARRAY -> getArrayParameter((String) param, context, value);
                 case MAP -> DataTransformer.getMapParameter(param, context, value);
-                case UNION -> getUnionParameter(paramName, context, index);
+                case UNION -> getUnionParameter(paramName, context, index, paramPrefix);
                 case TYPEDESC -> getTypedescValueWithFallback((String) param, paramName, context, index);
                 default -> null;
             };
@@ -210,13 +211,27 @@ public class ParamHandler {
         return ValueCreator.createTypedescValue(type);
     }
 
-    private Object getUnionParameter(String paramName, MessageContext context, int index) {
+    private Object getUnionParameter(String paramName, MessageContext context, int index, String prefix) {
         Object paramType = SynapseUtils.lookupTemplateParameter(context, paramName + "DataType");
         if (paramType instanceof String typeStr) {
-            String unionParamName = "param" + index + "Union" + org.apache.commons.lang3.StringUtils.capitalize(typeStr);
+            String unionParamName = prefix + "param" + index + "Union"
+                    + org.apache.commons.lang3.StringUtils.capitalize(typeStr);
             return getParameter(context, unionParamName, typeStr, -1);
         }
         return null;
+    }
+
+    /**
+     * Extracts the connection-type prefix from a parameter key used in init/config context.
+     * For function context keys like {@code "param0"} returns {@code ""}.
+     * For init context keys like {@code "SAP_JCO_CLIENT_param0"} returns {@code "SAP_JCO_CLIENT_"}.
+     */
+    private static String extractParamKeyPrefix(String key) {
+        if (key == null) {
+            return "";
+        }
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("^(.*?)param\\d+").matcher(key);
+        return m.find() ? m.group(1) : "";
     }
 
     private Object getArrayParameter(String jsonArrayString, MessageContext context, String valueKey) {

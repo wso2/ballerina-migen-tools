@@ -659,6 +659,40 @@ public class ParamHandlerTest {
     }
 
     @Test
+    public void testGetParameter_PrefixedUnionParamPattern() {
+        try (MockedStatic<SynapseUtils> synapseUtilsMock = Mockito.mockStatic(SynapseUtils.class);
+             MockedStatic<StringUtils> stringUtilsMock = Mockito.mockStatic(StringUtils.class)) {
+
+            MessageContext context = mock(MessageContext.class);
+            ParamHandler handler = new ParamHandler();
+
+            // Simulate BalConnectorConfig calling getParameter with connection-type prefix (e.g., SAP_JCO_CLIENT_)
+            synapseUtilsMock.when(() -> SynapseUtils.getPropertyAsString(context, "SAP_JCO_CLIENT_param0"))
+                    .thenReturn("configurations");
+            synapseUtilsMock.when(() -> SynapseUtils.getPropertyAsString(context, "SAP_JCO_CLIENT_paramType0"))
+                    .thenReturn(Constants.UNION);
+            synapseUtilsMock.when(() -> SynapseUtils.lookupTemplateParameter(context, "configurations"))
+                    .thenReturn(null);
+
+            // Union discriminator returns "string" (map case simplification for test)
+            synapseUtilsMock.when(() -> SynapseUtils.lookupTemplateParameter(context, "configurationsDataType"))
+                    .thenReturn("string");
+
+            // getUnionParameter constructs "SAP_JCO_CLIENT_param0UnionString" — must be found
+            synapseUtilsMock.when(() -> SynapseUtils.getPropertyAsString(context, "SAP_JCO_CLIENT_param0UnionString"))
+                    .thenReturn("configurationsString");
+            synapseUtilsMock.when(() -> SynapseUtils.lookupTemplateParameter(context, "configurationsString"))
+                    .thenReturn("hello");
+
+            BString mockBString = mock(BString.class);
+            stringUtilsMock.when(() -> StringUtils.fromString("hello")).thenReturn(mockBString);
+
+            Object result = handler.getParameter(context, "SAP_JCO_CLIENT_param0", "SAP_JCO_CLIENT_paramType0", 0);
+            Assert.assertEquals(result, mockBString);
+        }
+    }
+
+    @Test
     public void testPrependPathParams_WithFloatType() {
         try (MockedStatic<SynapseUtils> synapseUtilsMock = Mockito.mockStatic(SynapseUtils.class)) {
             MessageContext context = mock(MessageContext.class);
