@@ -181,6 +181,18 @@ public class DataTransformer {
     }
 
     public static Object createRecordValue(String jsonString, String paramName, MessageContext context, int paramIndex) {
+        return createRecordValue(jsonString, paramName, context, paramIndex, null);
+    }
+
+    /**
+     * Creates a Ballerina record value from either a JSON string or flattened context properties.
+     *
+     * @param recordTypeHint optional record type name (e.g. "DestinationConfig") used when the context does not
+     *                       carry a {@code _recordName} property — typically for union members whose record type
+     *                       is known at the call site but not stored in the Synapse template properties.
+     */
+    public static Object createRecordValue(String jsonString, String paramName, MessageContext context,
+                                           int paramIndex, String recordTypeHint) {
         if (jsonString == null) {
             String recordParamName = paramName;
             String connectionType = SynapseUtils.findConnectionTypeForParam(context, recordParamName);
@@ -204,7 +216,10 @@ public class DataTransformer {
             }
 
             Object recordNameObj = context.getProperty(recordNamePropertyKey);
-            String recordName = recordNameObj != null ? recordNameObj.toString() : null;
+            // Fall back to the caller-supplied type hint when the context property is absent.
+            // This covers union members (e.g. DestinationConfig) stored as flattened fields where
+            // the init template does not emit a separate _recordName property.
+            String recordName = recordNameObj != null ? recordNameObj.toString() : recordTypeHint;
             Module recordModule = getRecordModule(context, recordOrgPropertyKey, recordModulePropertyKey, recordVersionPropertyKey);
 
             // First, try to create a typed record to see if it's possible
@@ -227,8 +242,8 @@ public class DataTransformer {
                 throw new SynapseException("Failed to reconstruct record: " + bError.getMessage());
             }
 
-            if (recordNameObj == null) {
-                // No record name - return the reconstructed map as-is
+            if (recordName == null) {
+                // No record name available — return the reconstructed map as-is
                 if (reconstructedBMap instanceof BMap) {
                     return reconstructedBMap;
                 }

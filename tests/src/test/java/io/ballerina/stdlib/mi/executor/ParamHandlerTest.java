@@ -696,7 +696,9 @@ public class ParamHandlerTest {
     public void testGetParameter_PrefixedUnionParam_CustomRecordType_NullParam() {
         // Reproduces: "Cannot invoke BMap.getType() because jcoDestinationConfig is null"
         // When the union member is a custom record type (e.g. "DestinationConfig") stored as flattened
-        // context fields, param is null, and we must fall back to DataTransformer.createRecordValue.
+        // context fields, param is null. createRecordValue must be called with the type name hint so
+        // it can produce a typed BMap (not a generic one) — without this, Ballerina's
+        // "configurations is DestinationConfig" check fails and jcoDestinationConfig is null.
         try (MockedStatic<SynapseUtils> synapseUtilsMock = Mockito.mockStatic(SynapseUtils.class);
              MockedStatic<DataTransformer> dataTransformerMock = Mockito.mockStatic(DataTransformer.class)) {
 
@@ -723,12 +725,14 @@ public class ParamHandlerTest {
                     .thenReturn(null);
 
             Object mockRecord = new Object();
-            dataTransformerMock.when(() -> DataTransformer.createRecordValue(null, "jcoDestinationConfig", context, -1))
+            // Must be called with the 5-arg form so the type hint "DestinationConfig" is forwarded
+            dataTransformerMock.when(() -> DataTransformer.createRecordValue(
+                            null, "jcoDestinationConfig", context, -1, "DestinationConfig"))
                     .thenReturn(mockRecord);
 
             Object result = handler.getParameter(context, "SAP_JCO_CLIENT_param0", "SAP_JCO_CLIENT_paramType0", 0);
             Assert.assertEquals(result, mockRecord,
-                    "Expected record reconstructed from flattened fields when union member is a custom record type");
+                    "Expected typed record from createRecordValue hint when union member is a custom record type");
         }
     }
 
