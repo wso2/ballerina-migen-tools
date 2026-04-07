@@ -141,8 +141,10 @@ public class ParamHandler {
                 return ValueCreator.createTypedescValue(PredefinedTypes.TYPE_ANYDATA);
             } else if (value.matches("(?:.*_)?param\\d+Union.*") && isCustomRecordType(paramType)) {
                 // Union member is a custom record type (e.g. "DestinationConfig") stored as flattened
-                // context fields rather than a single JSON blob — reconstruct it.
-                return DataTransformer.createRecordValue(null, paramName, context, index);
+                // context fields rather than a single JSON blob. Pass the type name as a hint so
+                // createRecordValue can produce a typed BMap — the init template does not emit a
+                // _recordName property for union members, so the hint is the only source of the type.
+                return DataTransformer.createRecordValue(null, paramName, context, index, paramType);
             }
             return null;
         }
