@@ -139,6 +139,10 @@ public class ParamHandler {
                 }
                 // Fall back to anydata if no default specified
                 return ValueCreator.createTypedescValue(PredefinedTypes.TYPE_ANYDATA);
+            } else if (value.matches("(?:.*_)?param\\d+Union.*") && isCustomRecordType(paramType)) {
+                // Union member is a custom record type (e.g. "DestinationConfig") stored as flattened
+                // context fields rather than a single JSON blob — reconstruct it.
+                return DataTransformer.createRecordValue(null, paramName, context, index);
             }
             return null;
         }
@@ -232,6 +236,22 @@ public class ParamHandler {
         }
         java.util.regex.Matcher m = java.util.regex.Pattern.compile("^(.*?)param\\d+").matcher(key);
         return m.find() ? m.group(1) : "";
+    }
+
+    /**
+     * Returns {@code true} when {@code paramType} is a custom record type name (e.g. "DestinationConfig")
+     * rather than one of the built-in Ballerina / connector type constants.
+     * Used to detect union members that need record reconstruction from flattened context fields.
+     */
+    private static boolean isCustomRecordType(String paramType) {
+        if (paramType == null || paramType.isEmpty()) {
+            return false;
+        }
+        return switch (paramType) {
+            case BOOLEAN, INT, STRING, FLOAT, DECIMAL, JSON, XML,
+                    ANYDATA, RECORD, ARRAY, MAP, UNION, TYPEDESC, ENUM -> false;
+            default -> true;
+        };
     }
 
     private Object getArrayParameter(String jsonArrayString, MessageContext context, String valueKey) {
