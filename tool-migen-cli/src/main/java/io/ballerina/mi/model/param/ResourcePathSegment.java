@@ -125,9 +125,10 @@ public class ResourcePathSegment {
     }
 
     /**
-     * Removes escape backslashes from Ballerina quoted identifiers.
-     * In Ballerina, special characters in identifiers are escaped with backslash
+     * Removes escape backslashes from Ballerina quoted identifiers, only for
+     * characters that are valid IdentifierSingleEscape targets per the Ballerina spec.
      * (e.g., auth\.test means the identifier is auth.test).
+     * Unsupported escape sequences (e.g., \a) are preserved as-is.
      */
     private static String unescapeBallerinaIdentifier(String name) {
         if (!name.contains("\\")) {
@@ -137,13 +138,25 @@ public class ResourcePathSegment {
         for (int i = 0; i < name.length(); i++) {
             char c = name.charAt(i);
             if (c == '\\' && i + 1 < name.length()) {
-                // Skip the backslash, take the next character as-is
-                sb.append(name.charAt(++i));
+                char next = name.charAt(i + 1);
+                if (isIdentifierSingleEscape(next)) {
+                    // Valid escape: skip the backslash, take the escaped character
+                    sb.append(next);
+                    i++;
+                } else {
+                    // Not a valid escape target: preserve both backslash and next char
+                    sb.append(c);
+                }
             } else {
                 sb.append(c);
             }
         }
         return sb.toString();
+    }
+
+    private static boolean isIdentifierSingleEscape(char c) {
+        return c == '.' || c == '/' || c == ':' || c == ';'
+                || c == '<' || c == '>' || c == '[' || c == ']' || c == '\\';
     }
 
     private static String getJvmReservedCharEncoding(char c) {

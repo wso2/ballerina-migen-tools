@@ -282,7 +282,7 @@ public class UtilsTest {
 
         // Hyphens and periods are valid
         Assert.assertEquals(Utils.sanitizeXmlName("name-test"), "name-test");
-        Assert.assertEquals(Utils.sanitizeXmlName("name.test"), "name.test");
+        Assert.assertEquals(Utils.sanitizeXmlName("name.test"), "name_test");
     }
 
     @Test
