@@ -275,28 +275,25 @@ public class Utils {
     }
 
     /**
-     * Get the actual TypeDescKind by resolving type references recursively.
+     * Get the actual TypeDescKind by resolving type references and intersections recursively.
      */
     public static TypeDescKind getActualTypeKind(TypeSymbol typeSymbol) {
-        TypeDescKind typeKind = typeSymbol.typeKind();
-        // System.err.println("DEBUG: getActualTypeKind: " + typeKind + " for symbol: " + typeSymbol.getName().orElse("anon"));
-        if (typeKind == TypeDescKind.TYPE_REFERENCE) {
-            if (typeSymbol instanceof io.ballerina.compiler.api.symbols.TypeReferenceTypeSymbol typeRef) {
-                TypeDescKind resolved = getActualTypeKind(typeRef.typeDescriptor());
-                // System.err.println("DEBUG: Resolved TYPE_REFERENCE to: " + resolved);
-                return resolved;
-            }
-        }
-        return typeKind;
+        TypeSymbol actualSymbol = getActualTypeSymbol(typeSymbol);
+        return actualSymbol.typeKind();
     }
 
     /**
-     * Get the actual TypeSymbol by resolving type references recursively.
+     * Get the actual TypeSymbol by resolving type references and intersections recursively.
      */
     public static TypeSymbol getActualTypeSymbol(TypeSymbol typeSymbol) {
         if (typeSymbol.typeKind() == TypeDescKind.TYPE_REFERENCE) {
             if (typeSymbol instanceof io.ballerina.compiler.api.symbols.TypeReferenceTypeSymbol typeRef) {
                 return getActualTypeSymbol(typeRef.typeDescriptor());
+            }
+        }
+        if (typeSymbol.typeKind() == TypeDescKind.INTERSECTION) {
+            if (typeSymbol instanceof io.ballerina.compiler.api.symbols.IntersectionTypeSymbol intersection) {
+                return getActualTypeSymbol(intersection.effectiveTypeDescriptor());
             }
         }
         return typeSymbol;
