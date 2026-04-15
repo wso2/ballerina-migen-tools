@@ -27,6 +27,7 @@ import io.ballerina.runtime.api.creators.ValueCreator;
 import io.ballerina.runtime.api.types.*;
 import io.ballerina.runtime.api.utils.JsonUtils;
 import io.ballerina.runtime.api.utils.StringUtils;
+import io.ballerina.runtime.api.utils.TypeUtils;
 import io.ballerina.runtime.api.values.BArray;
 import io.ballerina.runtime.api.values.BError;
 import io.ballerina.runtime.api.values.BMap;
@@ -42,6 +43,7 @@ import org.apache.synapse.SynapseException;
 import org.ballerinalang.langlib.value.FromJsonStringWithType;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,22 +61,141 @@ public class DataTransformer {
         if (sourceValue == null) {
             return null;
         }
-        if (targetType.getTag() == TypeTags.RECORD_TYPE_TAG && sourceValue instanceof BMap) {
+
+        int tag = targetType.getTag();
+        log.info("Converting value to type: " + targetType + " (tag: " + tag + ")");
+
+        // Handle Intersection types (e.g. readonly records) by unwrapping to effective type
+        if (tag == TypeTags.INTERSECTION_TAG) {
+            Type effectiveType = ((IntersectionType) targetType).getEffectiveType();
+            log.info("Unwrapping intersection type to effective type: " + effectiveType);
+            return convertValueToType(sourceValue, effectiveType);
+        }
+
+        // Handle Type Reference types by unwrapping to referred type
+        if (tag == TypeTags.TYPE_REFERENCED_TYPE_TAG) {
+            Type referredType = TypeUtils.getReferredType(targetType);
+            log.info("Unwrapping type reference '" + targetType.getName() + "' to referred type: " + referredType);
+            return convertValueToType(sourceValue, referredType);
+        }
+
+        if (tag == TypeTags.RECORD_TYPE_TAG && sourceValue instanceof BMap) {
             return createTypedRecordFromGeneric((BMap<BString, Object>) sourceValue, (StructureType) targetType);
         }
-        if (targetType.getTag() == TypeTags.ARRAY_TAG && sourceValue instanceof BArray) {
+        if (tag == TypeTags.ARRAY_TAG && sourceValue instanceof BArray) {
             return createTypedArrayFromGeneric((BArray) sourceValue, (ArrayType) targetType);
         }
-        // Handle decimal type conversion - JSON parsing may produce Long/Double instead of BDecimal
-        if (targetType.getTag() == TypeTags.DECIMAL_TAG) {
-            if (sourceValue instanceof Number) {
-                return ValueCreator.createDecimalValue(new java.math.BigDecimal(sourceValue.toString()));
-            }
-            if (sourceValue instanceof BString) {
-                return ValueCreator.createDecimalValue(new java.math.BigDecimal(((BString) sourceValue).getValue()));
-            }
+        if (tag == TypeTags.MAP_TAG && sourceValue instanceof BMap) {
+            return createTypedMapFromGeneric((BMap<BString, Object>) sourceValue, (MapType) targetType);
         }
+
+        // Handle numeric and basic type conversions to prevent InherentTypeViolation
+        switch (tag) {
+            case TypeTags.INT_TAG:
+                if (sourceValue instanceof Number) {
+                    return ((Number) sourceValue).longValue();
+                }
+                break;
+            case TypeTags.FLOAT_TAG:
+                if (sourceValue instanceof Number) {
+                    return ((Number) sourceValue).doubleValue();
+                }
+                break;
+            case TypeTags.DECIMAL_TAG:
+                if (sourceValue instanceof Number) {
+                    return ValueCreator.createDecimalValue(new java.math.BigDecimal(sourceValue.toString()));
+                }
+                if (sourceValue instanceof BString) {
+                    return ValueCreator.createDecimalValue(new java.math.BigDecimal(sourceValue.toString()));
+                }
+                break;
+            case TypeTags.BOOLEAN_TAG:
+                if (sourceValue instanceof String) {
+                    return Boolean.parseBoolean((String) sourceValue);
+                }
+                break;
+            case TypeTags.STRING_TAG:
+                if (!(sourceValue instanceof BString)) {
+                    return StringUtils.fromString(sourceValue.toString());
+                }
+                break;
+            case TypeTags.UNION_TAG:
+                if (targetType instanceof UnionType unionType) {
+                    log.info("Attempting conversion to union members: " + unionType.getMemberTypes());
+                    
+                    // Pass 1: Try structured types (Records, Arrays, Maps)
+                    for (Type memberType : unionType.getMemberTypes()) {
+                        Type effectiveMemberType = getEffectiveType(memberType);
+                        int memberTag = effectiveMemberType.getTag();
+                        if (memberTag == TypeTags.RECORD_TYPE_TAG && sourceValue instanceof BMap) {
+                            try {
+                                Object converted = createTypedRecordFromGeneric((BMap<BString, Object>) sourceValue, (StructureType) effectiveMemberType);
+                                log.info("Successfully converted to union member record: " + effectiveMemberType);
+                                return converted;
+                            } catch (Exception e) {
+                                // Ignore and try next member
+                            }
+                        } else if (memberTag == TypeTags.ARRAY_TAG && sourceValue instanceof BArray) {
+                            try {
+                                Object converted = createTypedArrayFromGeneric((BArray) sourceValue, (ArrayType) effectiveMemberType);
+                                log.info("Successfully converted to union member array: " + effectiveMemberType);
+                                return converted;
+                            } catch (Exception e) {
+                                // Ignore and try next member
+                            }
+                        } else if (memberTag == TypeTags.MAP_TAG && sourceValue instanceof BMap) {
+                            try {
+                                Object converted = createTypedMapFromGeneric((BMap<BString, Object>) sourceValue, (MapType) effectiveMemberType);
+                                log.info("Successfully converted to union member map: " + effectiveMemberType);
+                                return converted;
+                            } catch (Exception e) {
+                                // Ignore and try next member
+                            }
+                        }
+                    }
+
+                    // Pass 2: Try basic types with natural matches
+                    for (Type memberType : unionType.getMemberTypes()) {
+                        Type effectiveMemberType = getEffectiveType(memberType);
+                        int memberTag = effectiveMemberType.getTag();
+                        if (memberTag == TypeTags.STRING_TAG && (sourceValue instanceof String || sourceValue instanceof BString)) {
+                            return sourceValue instanceof BString ? sourceValue : StringUtils.fromString(sourceValue.toString());
+                        }
+                        if (memberTag == TypeTags.INT_TAG && sourceValue instanceof Number) {
+                            return ((Number) sourceValue).longValue();
+                        }
+                        if (memberTag == TypeTags.FLOAT_TAG && sourceValue instanceof Number) {
+                            return ((Number) sourceValue).doubleValue();
+                        }
+                        if (memberTag == TypeTags.BOOLEAN_TAG && sourceValue instanceof Boolean) {
+                            return sourceValue;
+                        }
+                    }
+
+                    // Pass 3: Try basic type coercion (e.g. Long to BString for string? field)
+                    for (Type memberType : unionType.getMemberTypes()) {
+                        Type effectiveMemberType = getEffectiveType(memberType);
+                        int memberTag = effectiveMemberType.getTag();
+                        if (memberTag == TypeTags.STRING_TAG) {
+                            return StringUtils.fromString(sourceValue.toString());
+                        }
+                    }
+                }
+                break;
+        }
+
         return sourceValue;
+    }
+
+    private static Type getEffectiveType(Type type) {
+        int tag = type.getTag();
+        if (tag == TypeTags.TYPE_REFERENCED_TYPE_TAG) {
+            return getEffectiveType(TypeUtils.getReferredType(type));
+        }
+        if (tag == TypeTags.INTERSECTION_TAG) {
+            return getEffectiveType(((IntersectionType) type).getEffectiveType());
+        }
+        return type;
     }
 
     public static BMap<BString, Object> createTypedRecordFromGeneric(BMap<BString, Object> genericMap, StructureType targetType) {
@@ -92,19 +213,25 @@ public class DataTransformer {
     }
 
     public static BArray createTypedArrayFromGeneric(BArray genericArray, ArrayType targetType) {
+        // Create a new array with the correct inherent type to prevent InherentTypeViolation
+        BArray typedArray = ValueCreator.createArrayValue(targetType);
         long size = genericArray.size();
         for (long i = 0; i < size; i++) {
             Object value = genericArray.get(i);
             Object converted = convertValueToType(value, targetType.getElementType());
-            if (value != converted) {
-                try {
-                    genericArray.add(i, converted);
-                } catch (Exception e) {
-                    log.warn("Failed to update array element at index " + i + ": " + e.getMessage());
-                }
-            }
+            typedArray.add(i, converted);
         }
-        return genericArray;
+        return typedArray;
+    }
+
+    public static BMap<BString, Object> createTypedMapFromGeneric(BMap<BString, Object> genericMap, MapType targetType) {
+        // Create a new map with the correct inherent type to prevent InherentTypeViolation
+        BMap<BString, Object> typedMap = ValueCreator.createMapValue(targetType);
+        for (Map.Entry<BString, Object> entry : genericMap.entrySet()) {
+            Object convertedValue = convertValueToType(entry.getValue(), targetType.getConstrainedType());
+            typedMap.put(entry.getKey(), convertedValue);
+        }
+        return typedMap;
     }
 
     /**
@@ -127,6 +254,15 @@ public class DataTransformer {
         } catch (Exception e) {
             log.warn("Failed to get method parameter type for " + methodName + "[" + paramIndex + "]: " + e.getMessage());
         }
+        return null;
+    }
+
+    /**
+     * Gets the expected parameter type for a module function.
+     */
+    public static Type getFunctionParameterType(Module module, String functionName, int paramIndex) {
+        // Module in JBallerina runtime doesn't directly expose function types for external lookup easily
+        // via this public API. We fall back to as-is conversion.
         return null;
     }
 
@@ -189,6 +325,7 @@ public class DataTransformer {
      */
     public static Object createRecordValue(String jsonString, String paramName, MessageContext context,
                                            int paramIndex, String recordTypeHint) {
+        log.info("Creating record value for parameter '" + paramName + "' (index: " + paramIndex + ", hint: " + recordTypeHint + ")");
         if (jsonString == null) {
             String recordParamName = paramName;
             String connectionType = SynapseUtils.findConnectionTypeForParam(context, recordParamName);
@@ -212,11 +349,9 @@ public class DataTransformer {
             }
 
             Object recordNameObj = context.getProperty(recordNamePropertyKey);
-            // Fall back to the caller-supplied type hint when the context property is absent.
-            // This covers union members (e.g. DestinationConfig) stored as flattened fields where
-            // the init template does not emit a separate _recordName property.
             String recordName = recordNameObj != null ? recordNameObj.toString() : recordTypeHint;
             Module recordModule = getRecordModule(context, recordOrgPropertyKey, recordModulePropertyKey, recordVersionPropertyKey);
+            log.info("Reconstructing record '" + recordName + "' from prefix '" + propertyPrefix + "' in module " + recordModule);
 
             // First, try to create a typed record to see if it's possible
             boolean canCreateTypedRecord = false;
@@ -226,59 +361,36 @@ public class DataTransformer {
                     BMap<BString, Object> recValue = ValueCreator.createRecordValue(recordModule, recordName);
                     recType = recValue.getType();
                     canCreateTypedRecord = true;
+                    log.info("Successfully loaded record type: " + recType);
                 } catch (Exception e) {
-                    // External module type - will use generic BMap
+                    log.warn("Record type '" + recordName + "' not loadable in module " + recordModule + ": " + e.getMessage());
                 }
             }
 
-            // Reconstruct the BMap - only set defaults if we can't create a typed record.
-            // Pass recordTypeHint != null as the isDirectUnionMemberRecord flag: when a type hint is
-            // present we are building a standalone union-member record (e.g. SAP DestinationConfig)
-            // and must strip the parent-path prefix from field names.  When there is no hint we are
-            // building the parent record itself (e.g. OneDrive ConnectionConfig) and must keep the
-            // full dot-notation path so that setNestedField creates the correct nesting.
             Object reconstructedBMap = reconstructRecordFromFields(propertyPrefix, context, !canCreateTypedRecord, recordTypeHint != null);
 
             if (reconstructedBMap instanceof BError bError) {
+                log.error("Failed to reconstruct record: " + bError.getMessage());
                 throw new SynapseException("Failed to reconstruct record: " + bError.getMessage());
             }
 
+            if (recType != null) {
+                log.info("Converting reconstructed generic BMap to typed record " + recordName);
+                try {
+                    return convertValueToType(reconstructedBMap, recType);
+                } catch (Exception e) {
+                    log.error("Failed to convert reconstructed BMap to typed record: " + e.getMessage(), e);
+                }
+            }
+
             if (recordName == null) {
-                // No record name available — return the reconstructed map as-is
                 if (reconstructedBMap instanceof BMap) {
                     return reconstructedBMap;
                 }
-                throw new SynapseException("Record name not found for parameter at index " + paramIndex +
-                        ". Ensure '" + recordNamePropertyKey + "' property is set in the synapse template.");
+                throw new SynapseException("Record name not found for parameter at index " + paramIndex);
             }
 
-            // If we can create a typed record, populate it
-            if (canCreateTypedRecord && recType != null && reconstructedBMap instanceof BMap) {
-                BMap<?, ?> bMap = (BMap<?, ?>) reconstructedBMap;
-                String jsonStr = bMap.stringValue(null);
-                if (jsonStr == null || jsonStr.isEmpty()) {
-                    jsonStr = reconstructedBMap.toString();
-                }
-                BString jsonBString = StringUtils.fromString(jsonStr);
-                try {
-                    Object converted = FromJsonStringWithType.fromJsonStringWithType(
-                            jsonBString, ValueCreator.createTypedescValue(recType));
-                    if (converted instanceof BError) {
-                        // fromJsonStringWithType returns BError on conversion failure rather than throwing;
-                        // fall through to the generic converter so we never propagate an ErrorValue as a record.
-                        return convertValueToType(reconstructedBMap, recType);
-                    }
-                    return converted;
-                } catch (Exception e) {
-                    return convertValueToType(reconstructedBMap, recType);
-                }
-            }
-
-            // Return generic BMap with defaults
-            if (reconstructedBMap instanceof BMap) {
-                return reconstructedBMap;
-            }
-            throw new SynapseException("Failed to reconstruct record from flattened fields for parameter '" + paramName + "'");
+            return reconstructedBMap;
         }
 
         if (jsonString.startsWith("'") && jsonString.endsWith("'")) {
@@ -288,39 +400,24 @@ public class DataTransformer {
         Object recordNameObj = context.getProperty("param" + paramIndex + "_recordName");
         if (recordNameObj != null) {
             String recordName = recordNameObj.toString();
-            String recordOrgPropertyKey = "param" + paramIndex + "_recordOrg";
-            String recordModulePropertyKey = "param" + paramIndex + "_recordModule";
-            String recordVersionPropertyKey = "param" + paramIndex + "_recordVersion";
-            Module recordModule = getRecordModule(context, recordOrgPropertyKey, recordModulePropertyKey, recordVersionPropertyKey);
+            Module recordModule = getRecordModule(context, "param" + paramIndex + "_recordOrg", 
+                "param" + paramIndex + "_recordModule", "param" + paramIndex + "_recordVersion");
 
+            log.info("Creating typed record from JSON for '" + recordName + "' in module " + recordModule);
             BString jsonBString = StringUtils.fromString(jsonString);
             Type recType = null;
             try {
                 recType = ValueCreator.createRecordValue(recordModule, recordName).getType();
             } catch (Exception e) {
-                // Record type not loadable in this module — skip typed conversion
+                log.warn("Record type '" + recordName + "' not loadable: " + e.getMessage());
             }
 
             if (recType != null) {
-                // Attempt typed conversion; fromJsonStringWithType returns BError on failure (does not throw).
-                Object converted = null;
-                try {
-                    converted = FromJsonStringWithType.fromJsonStringWithType(
-                            jsonBString, ValueCreator.createTypedescValue(recType));
-                } catch (Exception e) {
-                    // fromJsonStringWithType threw — fall through to the same generic-parse fallback below
-                }
-                if (converted != null && !(converted instanceof BError)) {
-                    return converted;
-                }
-                // fromJsonStringWithType returned BError or threw — try generic parse with type coercion.
-                // Both failure modes are handled by a single path here, eliminating the duplicated
-                // typed-conversion code that previously lived only in the catch block.
                 try {
                     Object parseResult = JsonUtils.parse(jsonString);
                     return convertValueToType(parseResult, recType);
                 } catch (Exception deepEx) {
-                    log.error("Manual deep conversion failed: " + deepEx.getMessage(), deepEx);
+                    log.error("Manual conversion from JSON failed: " + deepEx.getMessage(), deepEx);
                 }
             }
         }
@@ -361,6 +458,7 @@ public class DataTransformer {
     public static Object reconstructRecordFromFields(String propertyPrefix, MessageContext context,
                                                      boolean setDefaultsForMissingFields,
                                                      boolean isDirectUnionMemberRecord) {
+        log.info("Reconstructing record from fields with prefix: " + propertyPrefix);
         com.google.gson.JsonObject recordJson = new com.google.gson.JsonObject();
         Map<String, String> unionFieldSelectedTypes = new HashMap<>();
         
@@ -378,7 +476,10 @@ public class DataTransformer {
                 Object dataTypeParamNameObj = context.getProperty(dataTypeKey);
                 if (dataTypeParamNameObj != null) {
                     Object selectedTypeObj = SynapseUtils.lookupTemplateParameter(context, dataTypeParamNameObj.toString());
-                    if (selectedTypeObj != null) unionFieldSelectedTypes.put(fieldNameObj.toString(), selectedTypeObj.toString());
+                    if (selectedTypeObj != null) {
+                        unionFieldSelectedTypes.put(fieldNameObj.toString(), selectedTypeObj.toString());
+                        log.info("Union field '" + fieldNameObj + "' selected type: " + selectedTypeObj);
+                    }
                 }
             }
             tempIndex++;
@@ -414,13 +515,10 @@ public class DataTransformer {
                 String sanitizedFieldPath = fieldPath.replace(".", "_");
                 Object unionValue = SynapseUtils.lookupTemplateParameter(context, sanitizedFieldPath);
                 if (unionValue != null) {
-                    // When building a union-member record directly (SAP DestinationConfig), field paths carry
-                    // the parent-union param name as a prefix (e.g. "configurations.auth") — strip to leaf.
-                    // When building a parent record (OneDrive ConnectionConfig), the path IS the correct
-                    // nested key (e.g. "auth") — keep it so setNestedField creates proper nesting.
                     String unionJsonKey = (isDirectUnionMemberRecord && unionMemberType != null && fieldPath.contains("."))
                             ? fieldPath.substring(fieldPath.indexOf('.') + 1)
                             : fieldPath;
+                     log.info("Adding union field: " + unionJsonKey + " = " + unionValue);
                      setNestedField(recordJson, unionJsonKey, unionValue, fieldType, context, propertyPrefix, fieldIndex);
                      fieldIndex++;
                      continue;
@@ -460,6 +558,7 @@ public class DataTransformer {
                                 Object jsonFieldValue = SynapseUtils.lookupTemplateParameter(context, jsonFieldObj.toString());
                                 if (jsonFieldValue != null && !jsonFieldValue.toString().isEmpty()) {
                                     fieldValue = jsonFieldValue;
+                                    log.info("Using JSON mode for array field: " + fieldPath);
                                 }
                             }
                         }
@@ -467,15 +566,6 @@ public class DataTransformer {
                 }
             }
 
-            // When building a union-member record directly (e.g. SAP DestinationConfig,
-            // isDirectUnionMemberRecord=true), field paths carry the parent-union param name as a
-            // dot-notation prefix (e.g. "configurations.ashost") — use only the leaf name ("ashost")
-            // so the JSON matches the member record's own field names.
-            //
-            // When building the parent record that *contains* the union field (e.g. OneDrive
-            // ConnectionConfig, isDirectUnionMemberRecord=false), the full path IS the correct nested
-            // key (e.g. "auth.token" → {"auth":{"token":"…"}}) — keep it so setNestedField creates
-            // the right nesting level inside the parent record.
             String jsonKey = (isDirectUnionMemberRecord && unionMemberType != null && fieldPath.contains("."))
                     ? fieldPath.substring(fieldPath.indexOf('.') + 1)
                     : fieldPath;
@@ -486,29 +576,27 @@ public class DataTransformer {
                     fieldIndex++;
                     continue;
                 }
-                // Skip enum fields with invalid numeric placeholder values (e.g., "2", "3", ...)
-                // But allow "0" and "1" which are valid for ZERO_OR_ONE type
                 if (ENUM.equals(fieldType) && valueStr.matches("\\d+") && !valueStr.equals("0") && !valueStr.equals("1")) {
                     fieldIndex++;
                     continue;
                 }
+                log.info("Adding field: " + jsonKey + " (type: " + fieldType + ") = " + fieldValue);
                 setNestedField(recordJson, jsonKey, fieldValue, fieldType, context, propertyPrefix, fieldIndex);
             } else if (setDefaultsForMissingFields && (DECIMAL.equals(fieldType) || INT.equals(fieldType))) {
-                // Set default value of 0 for numeric fields that aren't provided
-                // This prevents null pointer exceptions when Ballerina code accesses these fields in generic BMaps
+                log.info("Adding default 0 for missing numeric field: " + jsonKey);
                 setNestedField(recordJson, jsonKey, "0", fieldType, context, propertyPrefix, fieldIndex);
             }
             fieldIndex++;
         }
 
         String jsonStr = recordJson.toString();
+        log.info("Reconstructed JSON: " + jsonStr);
 
         Object parseResult = JsonUtils.parse(jsonStr);
         if (parseResult instanceof BError bError) {
             throw new SynapseException("Failed to parse reconstructed record JSON: " + bError.getMessage());
         }
 
-        // Post-process to convert numeric values to correct Ballerina types (especially decimal)
         if (parseResult instanceof BMap) {
             @SuppressWarnings("unchecked")
             BMap<BString, Object> resultMap = (BMap<BString, Object>) parseResult;
