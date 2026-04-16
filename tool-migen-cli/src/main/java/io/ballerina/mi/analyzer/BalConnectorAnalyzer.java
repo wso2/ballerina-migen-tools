@@ -29,6 +29,7 @@ import io.ballerina.mi.model.Connection;
 import io.ballerina.mi.model.Connector;
 import io.ballerina.mi.model.FunctionType;
 import io.ballerina.mi.model.GenerationReport;
+import io.ballerina.mi.model.param.EnumFunctionParam;
 import io.ballerina.mi.model.param.FunctionParam;
 import io.ballerina.mi.model.param.Param;
 import io.ballerina.mi.model.param.RecordFunctionParam;
@@ -451,6 +452,13 @@ public class BalConnectorAnalyzer implements Analyzer {
                         } else if ("()".equals(defaultValue)) {
                             // Convert Ballerina nil to empty string for UI schema
                             defaultValue = "";
+                        } else if (param instanceof EnumFunctionParam enumParam
+                                && !enumParam.getEnumValues().contains(defaultValue)
+                                && defaultValue.matches("[A-Za-z_][A-Za-z0-9_]*")) {
+                            // defaultValue is a bare Ballerina identifier (enum member name, e.g. "DEFAULT"),
+                            // not an actual enum value (e.g. "0"). Resolve it via the semantic model.
+                            defaultValue = resolveConstantValue(semanticModel, defaultValue)
+                                    .orElse(defaultValue);
                         }
                         param.setDefaultValue(defaultValue);
                         param.setRequired(false);
@@ -510,6 +518,33 @@ public class BalConnectorAnalyzer implements Analyzer {
         }
 
         connector.setConnection(connection);
+    }
+
+    /**
+     * Resolves a Ballerina constant name (e.g. "DEFAULT") to its actual value (e.g. "0") using the semantic model.
+     * Returns an empty Optional if the constant cannot be found or its value cannot be determined.
+     */
+    private Optional<String> resolveConstantValue(SemanticModel semanticModel, String constantName) {
+        for (Symbol symbol : semanticModel.moduleSymbols()) {
+            if (symbol instanceof ConstantSymbol constantSymbol
+                    && constantSymbol.getName().filter(constantName::equals).isPresent()) {
+                Optional<String> resolved = constantSymbol.resolvedValue();
+                if (resolved.isPresent()) {
+                    String value = resolved.get().trim();
+                    // resolvedValue() returns quoted strings for string constants, e.g. "\"0\""
+                    if (value.startsWith("\"") && value.endsWith("\"") && value.length() >= 2) {
+                        value = value.substring(1, value.length() - 1);
+                    }
+                    return Optional.of(value);
+                }
+                // Fall back to constValue() if resolvedValue() is absent
+                Object constVal = constantSymbol.constValue();
+                if (constVal != null) {
+                    return Optional.of(constVal.toString());
+                }
+            }
+        }
+        return Optional.empty();
     }
 
     private boolean isClientClass(ClassSymbol classSymbol) {
