@@ -42,10 +42,7 @@ import io.ballerina.mi.util.Constants;
 import io.ballerina.mi.util.Utils;
 import org.apache.commons.lang3.StringUtils;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * Factory class responsible for creating {@link FunctionParam} instances from Ballerina
@@ -345,7 +342,7 @@ public class ParamFactory {
             // For example, fields will be "authConfig.token" instead of "config.authConfig.token"
             String parentPath = "";  // Top-level record should not include param name in field paths
             recordParam.setParentParamPath("");  // Top-level has no parent
-            populateRecordFieldParams(recordParam, recordTypeSymbol, parentPath, new int[]{MAX_FIELD_BUDGET});
+            populateRecordFieldParams(recordParam, recordTypeSymbol, parentPath);
         }
 
         return Optional.of(recordParam);
@@ -395,24 +392,35 @@ public class ParamFactory {
 
             String parentPath = "";  // Top-level - no parent path prefix
             includedRecordParam.setParentParamPath("");
-            populateRecordFieldParams(includedRecordParam, recordTypeSymbol, parentPath, new int[]{MAX_FIELD_BUDGET});
+            populateRecordFieldParams(includedRecordParam, recordTypeSymbol, parentPath);
         }
 
         return Optional.of(includedRecordParam);
     }
 
-    // Maximum total field count per record tree to prevent OOM from exponential expansion.
-    // Records like OAuth2 ConnectionConfig have recursive types (ClientConfiguration → auth → ClientConfiguration).
-    // Without a budget, depth 20 can produce millions of fields. With a budget of 200 fields,
-    // we get full expansion for ~2-3 levels of nesting (practical for user configuration) then stop.
-    // Kept low to prevent OOM on large connectors (e.g. Gmail with 32 components × multiple record params).
-    private static final int MAX_FIELD_BUDGET = 200;
+    /**
+     * Entry point for populating record fields. Creates a fresh signature-based visited-types set for cycle detection.
+     */
+    private static void populateRecordFieldParams(RecordFunctionParam recordParam, RecordTypeSymbol recordTypeSymbol, String parentPath) {
+        populateRecordFieldParams(recordParam, recordTypeSymbol, parentPath, new HashSet<>());
+    }
 
-    private static void populateRecordFieldParams(RecordFunctionParam recordParam, RecordTypeSymbol recordTypeSymbol, String parentPath, int[] fieldBudget) {
-        // Budget exhausted - stop expanding. Remaining nested records are left as opaque fields.
-        if (fieldBudget[0] <= 0) {
-            return;
+    /**
+     * Populate record fields recursively with cycle detection.
+     * Uses signature() as the key so both named and anonymous/inline record types are tracked correctly,
+     * even when the compiler returns different wrapper objects for the same logical type.
+     * Once a record type is expanded, it is permanently marked as visited within the current expansion tree.
+     * This prevents re-expansion of the same type in nested branches (e.g., ClientConfiguration -> auth -> ClientConfiguration).
+     * Each top-level union member gets its own fresh visitedTypes set via createUnionFunctionParam.
+     */
+    private static void populateRecordFieldParams(RecordFunctionParam recordParam, RecordTypeSymbol recordTypeSymbol, String parentPath, Set<String> visitedTypes) {
+        // Cycle detection: use signature() so both named and anonymous types are uniquely identified
+        // even when the compiler returns different object instances for the same logical type
+        String typeSignature = recordTypeSymbol.signature();
+        if (visitedTypes.contains(typeSignature)) {
+            return; // Cycle detected — stop expanding
         }
+        visitedTypes.add(typeSignature);
 
         Map<String, RecordFieldSymbol> fieldDescriptors = recordTypeSymbol.fieldDescriptors();
         int fieldIndex = 0;
@@ -425,12 +433,6 @@ public class ParamFactory {
             String fieldType = Utils.getParamTypeName(fieldTypeKind);
 
             if (fieldType != null) {
-                // Decrement budget for each field we create
-                fieldBudget[0]--;
-                if (fieldBudget[0] < 0) {
-                    return; // Budget exhausted mid-record
-                }
-
                 FunctionParam fieldParam;
 
                 // Build qualified name for this field
@@ -461,11 +463,10 @@ public class ParamFactory {
                         TypeSymbol actualTypeSymbol = Utils.getActualTypeSymbol(fieldTypeSymbol);
                         if (actualTypeSymbol instanceof BallerinaUnionTypeSymbol ballerinaUnionTypeSymbol) {
                             // Use qualifiedFieldName to ensure enable conditions are properly scoped for nested fields
-                            populateUnionMemberParams(qualifiedFieldName, ballerinaUnionTypeSymbol, unionFieldParam, fieldBudget);
+                            populateUnionMemberParams(qualifiedFieldName, ballerinaUnionTypeSymbol, unionFieldParam, visitedTypes);
                         }
                         // Skip empty unions (all members are nil or unsupported types)
                         if (unionFieldParam.getUnionMemberParams().isEmpty()) {
-                            fieldBudget[0]++; // Refund the budget for skipped field
                             continue;
                         }
                         // If there's only one non-nil member, convert to a regular FunctionParam instead of UnionFunctionParam
@@ -490,7 +491,7 @@ public class ParamFactory {
 
                     if (actualTypeSymbol instanceof RecordTypeSymbol nestedRecordTypeSymbol) {
                         String nestedParentPath = buildQualifiedName(parentPath, fieldName);
-                        populateRecordFieldParams(nestedRecordParam, nestedRecordTypeSymbol, nestedParentPath, fieldBudget);
+                        populateRecordFieldParams(nestedRecordParam, nestedRecordTypeSymbol, nestedParentPath, visitedTypes);
                     }
                     fieldParam = nestedRecordParam;
                 } else if (fieldTypeKind == TypeDescKind.MAP) {
@@ -587,8 +588,9 @@ public class ParamFactory {
         TypeSymbol typeSymbol = parameterSymbol.typeDescriptor();
         functionParam.setTypeSymbol(typeSymbol);
         TypeSymbol actualTypeSymbol = Utils.getActualTypeSymbol(typeSymbol);
+        Set<String> visitedTypes = new HashSet<>();
         if (actualTypeSymbol instanceof BallerinaUnionTypeSymbol ballerinaUnionTypeSymbol) {
-            populateUnionMemberParams(paramName, ballerinaUnionTypeSymbol, functionParam, new int[]{MAX_FIELD_BUDGET});
+            populateUnionMemberParams(paramName, ballerinaUnionTypeSymbol, functionParam, visitedTypes);
         }
         functionParam.setTypeSymbol(parameterSymbol.typeDescriptor());
         // Only try the second approach if the first one didn't find any members
@@ -597,7 +599,7 @@ public class ParamFactory {
             actualTypeSymbol = Utils.getActualTypeSymbol(parameterSymbol.typeDescriptor());
             // Check for UnionTypeSymbol interface instead of concrete class to handle all union type implementations
             if (actualTypeSymbol instanceof UnionTypeSymbol unionTypeSymbol) {
-                populateUnionMemberParams(paramName, unionTypeSymbol, functionParam, new int[]{MAX_FIELD_BUDGET});
+                populateUnionMemberParams(paramName, unionTypeSymbol, functionParam, visitedTypes);
             }
         }
         // Skip empty unions (all members are nil or unsupported types)
@@ -621,11 +623,7 @@ public class ParamFactory {
         return Optional.of(functionParam);
     }
 
-    private static void populateUnionMemberParams(String paramName, UnionTypeSymbol unionTypeSymbol, UnionFunctionParam functionParam, int[] fieldBudget) {
-        // Budget exhausted - stop expanding
-        if (fieldBudget[0] <= 0) {
-            return;
-        }
+    private static void populateUnionMemberParams(String paramName, UnionTypeSymbol unionTypeSymbol, UnionFunctionParam functionParam, Set<String> visitedTypes) {
         int memberIndex = 0;
         java.util.Set<String> seenTypes = new java.util.HashSet<>();  // Track seen actualParamType values to avoid duplicates
 
@@ -675,7 +673,7 @@ public class ParamFactory {
                         memberUnionParam.setDisplayTypeName(actualParamType);
                         // Propagate parent's optionality
                         memberUnionParam.setRequired(functionParam.isRequired());
-                        populateUnionMemberParams(memberParamName, memberUnionSymbol, memberUnionParam, fieldBudget);
+                        populateUnionMemberParams(memberParamName, memberUnionSymbol, memberUnionParam, visitedTypes);
                         memberParam = memberUnionParam;
                     } else if (actualTypeKind == TypeDescKind.RECORD && actualMemberTypeSymbol instanceof RecordTypeSymbol recordTypeSymbol) {
                         RecordFunctionParam recordParam = new RecordFunctionParam(Integer.toString(memberIndex), memberParamName, paramType);
@@ -685,7 +683,7 @@ public class ParamFactory {
                         // Propagate parent's optionality
                         recordParam.setRequired(functionParam.isRequired());
                         // Use original paramName as parent path for fields so they are generated as "paramName.field"
-                        populateRecordFieldParams(recordParam, recordTypeSymbol, paramName, fieldBudget);
+                        populateRecordFieldParams(recordParam, recordTypeSymbol, paramName, visitedTypes);
                         memberParam = recordParam;
                     } else {
                         memberParam = new FunctionParam(Integer.toString(memberIndex), memberParamName, paramType);
