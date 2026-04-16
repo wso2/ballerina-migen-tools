@@ -58,7 +58,7 @@ public class BalExecutor {
             }
         }
         Object[] args = new Object[size];
-        paramHandler.setParameters(args, context);
+        paramHandler.setParameters(args, context, callable);
         
         try {
             Object result;
@@ -89,6 +89,7 @@ public class BalExecutor {
             }
 
             if (result instanceof BError bError) {
+                log.error("Ballerina call returned error: " + bError.getMessage());
                 throw new BallerinaExecutionException(bError.getMessage(), bError.fillInStackTrace());
             }
             Object processedResult = processResponse(result);
