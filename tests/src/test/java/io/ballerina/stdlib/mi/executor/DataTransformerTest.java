@@ -317,10 +317,18 @@ public class DataTransformerTest {
     @Test
     public void testConvertValueToType_PrimitiveTypes() {
         try (MockedStatic<StringUtils> stringUtilsMock = Mockito.mockStatic(StringUtils.class)) {
-            // Test INT
+            // Test INT — whole-number double converts correctly
             Type intType = mock(Type.class);
             when(intType.getTag()).thenReturn(TypeTags.INT_TAG);
-            Assert.assertEquals(DataTransformer.convertValueToType(123.45, intType), 123L);
+            Assert.assertEquals(DataTransformer.convertValueToType(123.0, intType), 123L);
+
+            // Fractional input must be rejected (lossy narrowing)
+            try {
+                DataTransformer.convertValueToType(123.45, intType);
+                Assert.fail("Expected SynapseException for fractional-to-int conversion");
+            } catch (SynapseException e) {
+                Assert.assertTrue(e.getMessage().contains("123.45"));
+            }
 
             // Test FLOAT
             Type floatType = mock(Type.class);
@@ -1813,31 +1821,30 @@ public class DataTransformerTest {
     }
 
     @Test
-    public void testCreateRecordValue_WithRecordName_DeepConversionFails_FallsBackToParse() {
+    public void testCreateRecordValue_WithRecordName_DeepConversionFails_ThrowsSynapseException() {
         try (MockedStatic<JsonUtils> jsonUtilsMock = Mockito.mockStatic(JsonUtils.class);
-             MockedStatic<FromJsonStringWithType> fromJsonMock = Mockito.mockStatic(FromJsonStringWithType.class);
              MockedStatic<ValueCreator> valueCreatorMock = Mockito.mockStatic(ValueCreator.class)) {
             MessageContext context = mock(MessageContext.class);
             when(context.getProperty("param0_recordName")).thenReturn("Rec");
 
-            // Ensure recType is non-null so the inner fallback path (JsonUtils.parse +
-            // convertValueToType) is exercised before falling through to the outer parse.
+            // recType is non-null so the JSON-parse + convertValueToType path is exercised
             BMap<BString, Object> recValue = mock(BMap.class);
             Type recType = mock(Type.class);
             when(recValue.getType()).thenReturn(recType);
             valueCreatorMock.when(() -> ValueCreator.createRecordValue(any(), eq("Rec"))).thenReturn(recValue);
 
-            fromJsonMock.when(() -> FromJsonStringWithType.fromJsonStringWithType(any(), any()))
-                    .thenThrow(new RuntimeException("fromJson fail"));
-
-            Object expected = new Object();
-            // First call hits the inner fallback (fails); second call is the outer parse (succeeds).
+            // JsonUtils.parse fails — convertValueToType path throws, which must now propagate
+            // as SynapseException rather than silently falling back to a second parse attempt
             jsonUtilsMock.when(() -> JsonUtils.parse("{\"id\":1}"))
-                    .thenThrow(new RuntimeException("deep parse fail"))
-                    .thenReturn(expected);
+                    .thenThrow(new RuntimeException("deep parse fail"));
 
-            Object result = DataTransformer.createRecordValue("{\"id\":1}", "param0", context, 0);
-            Assert.assertEquals(result, expected);
+            try {
+                DataTransformer.createRecordValue("{\"id\":1}", "param0", context, 0);
+                Assert.fail("Expected SynapseException when JSON-to-typed-record conversion fails");
+            } catch (SynapseException e) {
+                Assert.assertTrue(e.getMessage().contains("Rec"),
+                        "Exception should name the target record type");
+            }
         }
     }
 
