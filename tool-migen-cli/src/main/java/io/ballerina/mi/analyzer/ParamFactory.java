@@ -409,16 +409,17 @@ public class ParamFactory {
      * Populate record fields recursively with cycle detection.
      * Uses signature() as the key so both named and anonymous/inline record types are tracked correctly,
      * even when the compiler returns different wrapper objects for the same logical type.
-     * Once a record type is expanded, it is permanently marked as visited within the current expansion tree.
-     * This prevents re-expansion of the same type in nested branches (e.g., ClientConfiguration -> auth -> ClientConfiguration).
-     * Each top-level union member gets its own fresh visitedTypes set via createUnionFunctionParam.
+     * Uses path-based (backtracking) cycle detection: a type is only blocked if it appears in the
+     * current ancestor chain, not merely because it was expanded elsewhere in the tree.
+     * This allows the same type (e.g., http:ProxyConfig) to be expanded at multiple sibling paths,
+     * while still preventing true cycles (e.g., ClientConfiguration -> auth -> ClientConfiguration).
      */
     private static void populateRecordFieldParams(RecordFunctionParam recordParam, RecordTypeSymbol recordTypeSymbol, String parentPath, Set<String> visitedTypes) {
         // Cycle detection: use signature() so both named and anonymous types are uniquely identified
         // even when the compiler returns different object instances for the same logical type
         String typeSignature = recordTypeSymbol.signature();
         if (visitedTypes.contains(typeSignature)) {
-            return; // Cycle detected — stop expanding
+            return; // Cycle detected in current path — stop expanding
         }
         visitedTypes.add(typeSignature);
 
@@ -579,6 +580,10 @@ public class ParamFactory {
                 fieldIndex++;
             }
         }
+        // Backtrack: remove from visited so sibling branches can expand this type again.
+        // Cycle detection still works because the type is in visitedTypes throughout the
+        // entire recursive expansion of its fields (re-entry from a descendant is blocked).
+        visitedTypes.remove(typeSignature);
     }
 
     private static Optional<FunctionParam> createUnionFunctionParam(ParameterSymbol parameterSymbol, int index) {
