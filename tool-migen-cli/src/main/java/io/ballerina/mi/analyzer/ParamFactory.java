@@ -42,7 +42,12 @@ import io.ballerina.mi.util.Constants;
 import io.ballerina.mi.util.Utils;
 import org.apache.commons.lang3.StringUtils;
 
-import java.util.*;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.List;
+import java.util.ArrayList;
 
 /**
  * Factory class responsible for creating {@link FunctionParam} instances from Ballerina
