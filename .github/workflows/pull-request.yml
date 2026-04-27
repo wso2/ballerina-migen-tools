@@ -17,7 +17,7 @@ jobs:
           distribution: 'temurin'
           java-version: 17
           cache: maven
-
+      
       - name: Get Ballerina Version
         run: |
           BAL_VERSION=$(grep -w 'ballerinaLangVersion' gradle.properties | cut -d= -f2)
