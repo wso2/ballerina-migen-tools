@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.1.0] - 2026-04-29
 
 ### Added
 - Added `--package` option to the `bal migen module` command to pull and generate MI artifacts directly from a Ballerina Central package without a local project. When `--package <org/name:version>` is specified, the package is pulled from Central, extracted, and analyzed via `BalModuleAnalyzer`. If no version is given, the latest published version is used. ([#4843](https://github.com/wso2/product-integrator-mi/issues/4843))
