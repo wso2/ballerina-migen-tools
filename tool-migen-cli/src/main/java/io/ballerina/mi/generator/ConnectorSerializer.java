@@ -290,7 +290,8 @@ public class ConnectorSerializer {
         ResourceCopier.copyNativeSources(getClass().getClassLoader(), destinationPath, jarPath);
 
         if (connector.isBalModule()) {
-            Files.copy(targetPath.resolve("bin").resolve(connector.getModuleName() + ".jar"),
+            // sourcePath points to the emitted JAR regardless of project type (BuildProject → bin/, BalaProject → BalConnectors/)
+            Files.copy(sourcePath,
                     destinationPath.resolve(Connector.LIB_PATH).resolve(connector.getModuleName() + ".jar"));
         } else {
             Path generatedArtifactPath = Paths.get(System.getProperty(Constants.CONNECTOR_TARGET_PATH));

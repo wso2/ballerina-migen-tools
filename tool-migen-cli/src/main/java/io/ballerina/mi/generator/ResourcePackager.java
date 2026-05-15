@@ -69,8 +69,9 @@ public class ResourcePackager {
 
         // Copy the connector executable JAR
         if (connector.isBalModule()) {
+            // sourcePath points to the emitted JAR regardless of project type (BuildProject → bin/, BalaProject → BalConnectors/)
             Files.copy(
-                    targetPath.resolve("bin").resolve(connector.getModuleName() + ".jar"),
+                    sourcePath,
                     destinationPath.resolve(Connector.LIB_PATH).resolve(connector.getModuleName() + ".jar")
             );
         } else {
