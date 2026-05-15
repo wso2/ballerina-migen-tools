@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Fixed `NoSuchFileException` when running `bal migen module --package <org/name>` against a Ballerina Central package. The JAR copy step assumed the emitted artifact always resided under `target/mi/bin/`, which is only true for local `BuildProject` source. A Central package loads as a `BalaProject` and the compiler emits the JAR to `target/mi/BalConnectors/` instead. Both `ConnectorSerializer` and `ResourcePackager` now use the `sourcePath` reference (already set to the correct emitted JAR path by `compileAnalyzeAndEmit`) rather than recomputing a hardcoded `bin/` path.
+
 ## [1.1.0] - 2026-04-29
 
 ### Added
